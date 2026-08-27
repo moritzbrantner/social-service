@@ -42,6 +42,7 @@ export type Comment = {
 
 export type Conversation = {
   id: Id;
+  memberIds: Id[];
   createdAt: string;
   updatedAt: string;
   version: number;
