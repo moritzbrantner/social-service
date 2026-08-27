@@ -88,11 +88,19 @@ pub struct CreateComment {
 
 #[derive(Debug, Serialize, FromRow)]
 #[serde(rename_all = "camelCase")]
-pub struct Conversation {
+pub struct ConversationRow {
     pub id: Uuid,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub version: i64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Conversation {
+    #[serde(flatten)]
+    pub row: ConversationRow,
+    pub member_ids: Vec<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]
