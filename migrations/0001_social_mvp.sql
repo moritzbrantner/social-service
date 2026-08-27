@@ -2,7 +2,7 @@ CREATE TABLE profiles (
     app_id UUID NOT NULL,
     user_id UUID NOT NULL,
     display_name TEXT NOT NULL CHECK (char_length(display_name) BETWEEN 1 AND 120),
-    bio TEXT,
+    bio TEXT CHECK (bio IS NULL OR char_length(bio) <= 2000),
     avatar_media_id UUID,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),

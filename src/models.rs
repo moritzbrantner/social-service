@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use time::OffsetDateTime;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, FromRow)]
@@ -10,8 +10,8 @@ pub struct Profile {
     pub display_name: String,
     pub bio: Option<String>,
     pub avatar_media_id: Option<Uuid>,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub version: i64,
 }
 
@@ -30,8 +30,8 @@ pub struct MediaAsset {
     pub owner_id: Uuid,
     pub url: String,
     pub content_type: String,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub version: i64,
 }
 
@@ -48,8 +48,8 @@ pub struct PostRow {
     pub id: Uuid,
     pub author_id: Uuid,
     pub body: String,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub version: i64,
 }
 
@@ -76,8 +76,8 @@ pub struct Comment {
     pub post_id: Uuid,
     pub author_id: Uuid,
     pub body: String,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub version: i64,
 }
 
@@ -90,8 +90,8 @@ pub struct CreateComment {
 #[serde(rename_all = "camelCase")]
 pub struct Conversation {
     pub id: Uuid,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub version: i64,
 }
 
@@ -108,8 +108,8 @@ pub struct MessageRow {
     pub conversation_id: Uuid,
     pub author_id: Uuid,
     pub body: Option<String>,
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub version: i64,
 }
 
