@@ -13,7 +13,8 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
-        let database_url = env::var("DATABASE_URL").map_err(|_| ConfigError::Missing("DATABASE_URL"))?;
+        let database_url =
+            env::var("DATABASE_URL").map_err(|_| ConfigError::Missing("DATABASE_URL"))?;
         let bind = env::var("SOCIAL_BIND")
             .unwrap_or_else(|_| "127.0.0.1:8080".to_owned())
             .parse()

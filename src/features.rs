@@ -59,8 +59,13 @@ pub struct FeatureSet(HashSet<Feature>);
 impl FeatureSet {
     pub fn from_csv(value: &str) -> Result<Self, FeatureError> {
         let mut enabled = HashSet::new();
-        for raw in value.split(',').map(str::trim).filter(|value| !value.is_empty()) {
-            let feature = Feature::parse(raw).ok_or_else(|| FeatureError::Unknown(raw.to_owned()))?;
+        for raw in value
+            .split(',')
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            let feature =
+                Feature::parse(raw).ok_or_else(|| FeatureError::Unknown(raw.to_owned()))?;
             enabled.insert(feature);
         }
         let set = Self(enabled);

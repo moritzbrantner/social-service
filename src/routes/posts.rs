@@ -1,9 +1,19 @@
 use std::collections::HashSet;
 
-use axum::{Json, extract::{Path, Query, State}, http::{HeaderMap, StatusCode}};
+use axum::{
+    Json,
+    extract::{Path, Query, State},
+    http::{HeaderMap, StatusCode},
+};
 use uuid::Uuid;
 
-use crate::{auth::{RequestContext, app_id}, error::ApiError, features::Feature, models::{Comment, CreateComment, CreatePost, LimitQuery, Post, PostRow}, state::AppState};
+use crate::{
+    auth::{RequestContext, app_id},
+    error::ApiError,
+    features::Feature,
+    models::{Comment, CreateComment, CreatePost, LimitQuery, Post, PostRow},
+    state::AppState,
+};
 
 pub async fn create_post(
     State(state): State<AppState>,
@@ -29,7 +39,16 @@ pub async fn create_post(
     .fetch_one(&mut *transaction)
     .await?;
 
-    attach_media(&mut transaction, context.app_id.0, context.user_id.0, row.id, &media_ids, "post_media", "post_id").await?;
+    attach_media(
+        &mut transaction,
+        context.app_id.0,
+        context.user_id.0,
+        row.id,
+        &media_ids,
+        "post_media",
+        "post_id",
+    )
+    .await?;
     transaction.commit().await?;
     Ok(Json(Post { row, media_ids }))
 }
@@ -114,7 +133,9 @@ pub async fn follow_user(
     state.features.require(Feature::Follows)?;
     let context = RequestContext::from_headers(&headers)?;
     if user_id == context.user_id.0 {
-        return Err(ApiError::BadRequest("users cannot follow themselves".to_owned()));
+        return Err(ApiError::BadRequest(
+            "users cannot follow themselves".to_owned(),
+        ));
     }
     sqlx::query("INSERT INTO follows (app_id, follower_id, followed_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING")
         .bind(context.app_id.0)
@@ -160,7 +181,8 @@ pub async fn timeline(
 
     let mut posts = Vec::with_capacity(rows.len());
     for row in rows {
-        let media_ids = load_media_ids(&state, context.app_id.0, "post_media", "post_id", row.id).await?;
+        let media_ids =
+            load_media_ids(&state, context.app_id.0, "post_media", "post_id", row.id).await?;
         posts.push(Post { row, media_ids });
     }
     Ok(Json(posts))
@@ -186,7 +208,9 @@ pub(crate) async fn load_media_ids(
     owner_column: &'static str,
     owner_id: Uuid,
 ) -> Result<Vec<Uuid>, ApiError> {
-    let sql = format!("SELECT media_id FROM {table} WHERE app_id = $1 AND {owner_column} = $2 ORDER BY position ASC");
+    let sql = format!(
+        "SELECT media_id FROM {table} WHERE app_id = $1 AND {owner_column} = $2 ORDER BY position ASC"
+    );
     Ok(sqlx::query_scalar::<_, Uuid>(&sql)
         .bind(app_id)
         .bind(owner_id)
@@ -204,8 +228,11 @@ pub(crate) async fn attach_media(
     owner_column: &'static str,
 ) -> Result<(), ApiError> {
     for (position, media_id) in media_ids.iter().enumerate() {
-        let position = i16::try_from(position).map_err(|_| ApiError::BadRequest("too many media attachments".to_owned()))?;
-        let sql = format!("INSERT INTO {table} (app_id, {owner_column}, media_id, position) SELECT $1, $2, m.id, $3 FROM media_assets m WHERE m.app_id = $1 AND m.id = $4 AND m.owner_id = $5");
+        let position = i16::try_from(position)
+            .map_err(|_| ApiError::BadRequest("too many media attachments".to_owned()))?;
+        let sql = format!(
+            "INSERT INTO {table} (app_id, {owner_column}, media_id, position) SELECT $1, $2, m.id, $3 FROM media_assets m WHERE m.app_id = $1 AND m.id = $4 AND m.owner_id = $5"
+        );
         let result = sqlx::query(&sql)
             .bind(app_id)
             .bind(owner_id)
@@ -215,7 +242,9 @@ pub(crate) async fn attach_media(
             .execute(&mut **transaction)
             .await?;
         if result.rows_affected() != 1 {
-            return Err(ApiError::BadRequest("media attachments must belong to the current user and app".to_owned()));
+            return Err(ApiError::BadRequest(
+                "media attachments must belong to the current user and app".to_owned(),
+            ));
         }
     }
     Ok(())
@@ -223,11 +252,15 @@ pub(crate) async fn attach_media(
 
 fn unique_media_ids(media_ids: Vec<Uuid>) -> Result<Vec<Uuid>, ApiError> {
     if media_ids.len() > 8 {
-        return Err(ApiError::BadRequest("at most 8 media attachments are allowed".to_owned()));
+        return Err(ApiError::BadRequest(
+            "at most 8 media attachments are allowed".to_owned(),
+        ));
     }
     let mut seen = HashSet::with_capacity(media_ids.len());
     if media_ids.iter().any(|id| !seen.insert(*id)) {
-        return Err(ApiError::BadRequest("mediaIds must not contain duplicates".to_owned()));
+        return Err(ApiError::BadRequest(
+            "mediaIds must not contain duplicates".to_owned(),
+        ));
     }
     Ok(media_ids)
 }
@@ -235,7 +268,9 @@ fn unique_media_ids(media_ids: Vec<Uuid>) -> Result<Vec<Uuid>, ApiError> {
 fn validate_text(value: &str, max: usize, field: &str) -> Result<(), ApiError> {
     let length = value.trim().chars().count();
     if !(1..=max).contains(&length) {
-        return Err(ApiError::BadRequest(format!("{field} must contain 1-{max} characters")));
+        return Err(ApiError::BadRequest(format!(
+            "{field} must contain 1-{max} characters"
+        )));
     }
     Ok(())
 }

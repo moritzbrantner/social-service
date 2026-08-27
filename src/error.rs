@@ -1,4 +1,8 @@
-use axum::{Json, http::StatusCode, response::{IntoResponse, Response}};
+use axum::{
+    Json,
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -37,6 +41,13 @@ impl IntoResponse for ApiError {
             }
         };
         let message = self.to_string();
-        (status, Json(ErrorBody { error: code, message })).into_response()
+        (
+            status,
+            Json(ErrorBody {
+                error: code,
+                message,
+            }),
+        )
+            .into_response()
     }
 }

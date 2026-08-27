@@ -97,13 +97,7 @@ pub async fn create_message(
 ) -> Result<Json<Message>, ApiError> {
     state.features.require(Feature::Chat)?;
     let context = RequestContext::from_headers(&headers)?;
-    require_membership(
-        &state,
-        context.app_id.0,
-        conversation_id,
-        context.user_id.0,
-    )
-    .await?;
+    require_membership(&state, context.app_id.0, conversation_id, context.user_id.0).await?;
 
     let body = input
         .body
@@ -180,13 +174,7 @@ pub async fn list_messages(
 ) -> Result<Json<Vec<Message>>, ApiError> {
     state.features.require(Feature::Chat)?;
     let context = RequestContext::from_headers(&headers)?;
-    require_membership(
-        &state,
-        context.app_id.0,
-        conversation_id,
-        context.user_id.0,
-    )
-    .await?;
+    require_membership(&state, context.app_id.0, conversation_id, context.user_id.0).await?;
     let rows = sqlx::query_as::<_, MessageRow>(
         "SELECT id, conversation_id, author_id, body, created_at, updated_at, version FROM messages WHERE app_id = $1 AND conversation_id = $2 ORDER BY created_at DESC LIMIT $3",
     )

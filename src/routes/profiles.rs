@@ -1,7 +1,17 @@
-use axum::{Json, extract::{Path, State}, http::HeaderMap};
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::HeaderMap,
+};
 use uuid::Uuid;
 
-use crate::{auth::{RequestContext, app_id}, error::ApiError, features::Feature, models::{Profile, UpsertProfile}, state::AppState};
+use crate::{
+    auth::{RequestContext, app_id},
+    error::ApiError,
+    features::Feature,
+    models::{Profile, UpsertProfile},
+    state::AppState,
+};
 
 pub async fn get_profile(
     State(state): State<AppState>,
@@ -41,7 +51,9 @@ pub async fn upsert_profile(
         .fetch_one(&state.pool)
         .await?;
         if !exists {
-            return Err(ApiError::BadRequest("avatar media must belong to the current user and app".to_owned()));
+            return Err(ApiError::BadRequest(
+                "avatar media must belong to the current user and app".to_owned(),
+            ));
         }
     }
 
@@ -61,10 +73,18 @@ pub async fn upsert_profile(
 fn validate_profile(input: &UpsertProfile) -> Result<(), ApiError> {
     let name_len = input.display_name.trim().chars().count();
     if !(1..=120).contains(&name_len) {
-        return Err(ApiError::BadRequest("displayName must contain 1-120 characters".to_owned()));
+        return Err(ApiError::BadRequest(
+            "displayName must contain 1-120 characters".to_owned(),
+        ));
     }
-    if input.bio.as_ref().is_some_and(|bio| bio.chars().count() > 2000) {
-        return Err(ApiError::BadRequest("bio must contain at most 2000 characters".to_owned()));
+    if input
+        .bio
+        .as_ref()
+        .is_some_and(|bio| bio.chars().count() > 2000)
+    {
+        return Err(ApiError::BadRequest(
+            "bio must contain at most 2000 characters".to_owned(),
+        ));
     }
     Ok(())
 }

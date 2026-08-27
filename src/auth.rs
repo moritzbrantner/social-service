@@ -54,8 +54,14 @@ mod tests {
         let app = Uuid::new_v4();
         let user = Uuid::new_v4();
         let mut headers = HeaderMap::new();
-        headers.insert("x-app-id", HeaderValue::from_str(&app.to_string()).expect("UUID header"));
-        headers.insert("x-user-id", HeaderValue::from_str(&user.to_string()).expect("UUID header"));
+        headers.insert(
+            "x-app-id",
+            HeaderValue::from_str(&app.to_string()).expect("UUID header"),
+        );
+        headers.insert(
+            "x-user-id",
+            HeaderValue::from_str(&user.to_string()).expect("UUID header"),
+        );
 
         let context = RequestContext::from_headers(&headers).expect("valid headers");
         assert_eq!(context.app_id.0, app);

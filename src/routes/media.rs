@@ -1,7 +1,13 @@
 use axum::{Json, extract::State, http::HeaderMap};
 use uuid::Uuid;
 
-use crate::{auth::RequestContext, error::ApiError, features::Feature, models::{MediaAsset, RegisterMedia}, state::AppState};
+use crate::{
+    auth::RequestContext,
+    error::ApiError,
+    features::Feature,
+    models::{MediaAsset, RegisterMedia},
+    state::AppState,
+};
 
 pub async fn register_media(
     State(state): State<AppState>,
@@ -13,10 +19,14 @@ pub async fn register_media(
     let url = input.url.trim();
     let content_type = input.content_type.trim();
     if url.is_empty() || url.chars().count() > 4096 {
-        return Err(ApiError::BadRequest("url must contain 1-4096 characters".to_owned()));
+        return Err(ApiError::BadRequest(
+            "url must contain 1-4096 characters".to_owned(),
+        ));
     }
     if content_type.is_empty() || content_type.chars().count() > 255 {
-        return Err(ApiError::BadRequest("contentType must contain 1-255 characters".to_owned()));
+        return Err(ApiError::BadRequest(
+            "contentType must contain 1-255 characters".to_owned(),
+        ));
     }
 
     let asset = sqlx::query_as::<_, MediaAsset>(
