@@ -1,0 +1,35 @@
+@base = http://127.0.0.1:8080
+@app = 00000000-0000-0000-0000-000000000001
+@alice = 00000000-0000-0000-0000-000000000002
+@bob = 00000000-0000-0000-0000-000000000003
+
+### Alice profile
+PUT {{base}}/v1/profiles/me
+X-App-Id: {{app}}
+X-User-Id: {{alice}}
+Content-Type: application/json
+
+{
+  "displayName": "Alice",
+  "bio": "MVP user"
+}
+
+### Bob profile
+PUT {{base}}/v1/profiles/me
+X-App-Id: {{app}}
+X-User-Id: {{bob}}
+Content-Type: application/json
+
+{
+  "displayName": "Bob"
+}
+
+### Alice follows Bob
+PUT {{base}}/v1/follows/{{bob}}
+X-App-Id: {{app}}
+X-User-Id: {{alice}}
+
+### Alice timeline
+GET {{base}}/v1/timeline
+X-App-Id: {{app}}
+X-User-Id: {{alice}}
