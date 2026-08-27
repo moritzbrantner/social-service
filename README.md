@@ -25,7 +25,7 @@ docker compose up -d postgres
 cargo run
 ```
 
-The server applies `migrations/` on startup and listens on `127.0.0.1:8080` by default.
+The server applies `migrations/` on startup and listens on `127.0.0.1:8080` by default. JSON timestamps are emitted as RFC 3339 strings.
 
 ## Headers
 
