@@ -25,6 +25,12 @@ Do not introduce multiple databases or Twitter-scale fan-out infrastructure with
 
 If scale later requires precomputed feeds, evolve toward a `timeline_entries(user_id, post_id, created_at)` read model populated asynchronously when posts are created. At very large scale, prefer a hybrid approach: fan out ordinary authors on write, while high-follower accounts are merged into feeds on read to avoid extreme write amplification.
 
+## Architecture notes
+
+`docs/architecture-evolution.md` records the minimal-default/optional-adapter strategy and the boundary that general-purpose search is not a core social capability. PostgreSQL full-text search may still be used by applications or a generic search adapter when useful.
+
+`docs/social-capabilities.md` records planned social-domain evolution, including tree-shaped comments, reactions, private saves/bookmarks, votes, reposts, blocks/mutes, mentions, and notification boundaries.
+
 ## Run
 
 ```bash
@@ -54,7 +60,7 @@ profiles,media,posts,comments,follows,chat
 
 Dependencies are validated at startup. `posts`, `follows`, `media`, and `chat` require `profiles`; `comments` requires `posts`.
 
-`SOCIAL_FEATURES` controls which capabilities exist. Future advanced implementations should use separate strategy settings so the minimal implementation remains the default and richer media, filtering, moderation, storage, and timeline behavior can be enabled per deployment. See `docs/architecture-evolution.md` for the planned switches and adoption rules.
+`SOCIAL_FEATURES` controls which capabilities exist. Future advanced implementations should use separate strategy settings so the minimal implementation remains the default and richer media, filtering, moderation, storage, and timeline behavior can be enabled per deployment. Add new capability flags only when the capability itself is implemented; do not reserve flags preemptively.
 
 ## API
 
