@@ -54,6 +54,8 @@ profiles,media,posts,comments,follows,chat
 
 Dependencies are validated at startup. `posts`, `follows`, `media`, and `chat` require `profiles`; `comments` requires `posts`.
 
+`SOCIAL_FEATURES` controls which capabilities exist. Future advanced implementations should use separate strategy settings so the minimal implementation remains the default and richer media, filtering, moderation, storage, and timeline behavior can be enabled per deployment. See `docs/architecture-evolution.md` for the planned switches and adoption rules.
+
 ## API
 
 ```text
