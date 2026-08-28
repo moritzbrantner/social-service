@@ -30,6 +30,16 @@ None of the advanced strategies below are required for the MVP. They are planned
 
 Names are intentionally provisional until each strategy is implemented. When implementing one, keep the minimal mode supported and tested rather than replacing it with the advanced mode.
 
+## Search boundary
+
+General-purpose search is not a core social capability and should not be added to `SOCIAL_FEATURES` merely to search posts, comments, or profiles. Indexing, lexical/full-text search, typo tolerance, autocomplete, semantic/vector search, and ranking are broadly reusable technical concerns.
+
+For a small application, PostgreSQL full-text search is a good simple implementation and may be used directly by the application or a generic search adapter. If richer search is later needed, a generic search solution may index social-service projections/events and return domain identities such as `post_id`, `comment_id`, or `user_id`.
+
+The social service remains authoritative for social data and visibility semantics. A search index is a derived read model, not the source of truth, and must not become a way to bypass app scoping, deletion, blocks, privacy, moderation, or other social policy.
+
+If a genuinely social discovery feature emerges later, model its social semantics explicitly rather than turning generic search infrastructure into a social-domain capability.
+
 ## Media model boundary
 
 A post or message should reference a **logical media asset**, not a particular thumbnail, codec, resolution, or storage backend. Advanced media processing may add derived variants behind that asset without changing the post/message relationship.
@@ -37,6 +47,10 @@ A post or message should reference a **logical media asset**, not a particular t
 For managed storage, keep large bytes outside PostgreSQL. PostgreSQL owns social metadata, ownership, attachment relationships, processing state, and variant metadata; object storage/CDN owns the media bytes.
 
 If asynchronous processing is introduced, use a small lifecycle such as `uploaded -> processing -> ready | failed`. Creating a post should not synchronously wait for expensive image/video processing unless a product explicitly requires it.
+
+## Social capability planning
+
+See `docs/social-capabilities.md` for the progressive plan for tree-shaped comments, reactions, saves/bookmarks, votes, reposts, blocks/mutes, mentions, and notification boundaries.
 
 ## Adoption rule
 
