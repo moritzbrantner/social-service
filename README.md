@@ -17,6 +17,14 @@ The service deliberately does **not** own authentication or UI. A trusted applic
 
 Media uploads are represented as registered media assets in the MVP. The API already attaches assets to posts and messages; presigned S3-compatible upload support can be added behind the media module without changing those domain relationships.
 
+## Timeline architecture
+
+The MVP intentionally uses **fan-out on read**: the following timeline is assembled by one indexed PostgreSQL query over `posts` and `follows`. It does not execute one query or use one database per followed user.
+
+Do not introduce multiple databases or Twitter-scale fan-out infrastructure without evidence that timeline reads require it. The first optimization should be eliminating N+1 reads when loading media for timeline posts by batch-loading attachments.
+
+If scale later requires precomputed feeds, evolve toward a `timeline_entries(user_id, post_id, created_at)` read model populated asynchronously when posts are created. At very large scale, prefer a hybrid approach: fan out ordinary authors on write, while high-follower accounts are merged into feeds on read to avoid extreme write amplification.
+
 ## Run
 
 ```bash
