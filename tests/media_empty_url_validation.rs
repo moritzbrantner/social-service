@@ -1,8 +1,9 @@
-mod support;
+#[path = "support/validation.rs"]
+mod validation_support;
 
-use support::{ValidationCase, assert_validation_case};
+use validation_support::assert_validation_case;
 
 #[tokio::test]
 async fn media_empty_url_returns_bad_request() {
-    assert_validation_case(ValidationCase::MediaEmptyUrl).await;
+    assert_validation_case("media-empty-url").await;
 }
