@@ -1,0 +1,13 @@
+mod support;
+
+use axum::http::Method;
+
+#[tokio::test]
+async fn {{name | snake}}_returns_feature_disabled() {
+    support::assert_feature_disabled(
+        Method::{{method}},
+        "{{path}}",
+        "{{feature}}",
+    )
+    .await;
+}

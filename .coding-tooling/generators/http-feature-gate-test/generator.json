@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "http-feature-gate-test",
+  "description": "Create a deterministic HTTP integration test for a bodyless endpoint whose capability is hidden when its feature is disabled.",
+  "rules": ["TEST-006", "TEST-009", "TEST-010"],
+  "technologies": ["rust"],
+  "inputs": {
+    "name": { "type": "identifier", "required": true },
+    "method": { "type": "enum", "required": true, "values": ["GET", "PUT", "DELETE"] },
+    "path": { "type": "string", "required": true },
+    "feature": {
+      "type": "enum",
+      "required": true,
+      "values": ["profiles", "posts", "comments", "follows", "chat"]
+    }
+  },
+  "target": { "kind": "root" },
+  "operations": [
+    {
+      "kind": "create-file",
+      "template": "templates/test.rs.tmpl",
+      "path": "tests/{{name | snake}}_feature_gate.rs"
+    }
+  ],
+  "compose": [],
+  "prerequisites": [
+    { "kind": "file", "path": "Cargo.toml" },
+    { "kind": "file", "path": "tests/support/mod.rs" }
+  ],
+  "postconditions": ["format:check"]
+}
