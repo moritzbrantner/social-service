@@ -1,0 +1,9 @@
+#[path = "support/validation.rs"]
+mod validation_support;
+
+use validation_support::assert_validation_case;
+
+#[tokio::test]
+async fn {{case | snake}}_returns_bad_request() {
+    assert_validation_case("{{case}}").await;
+}
