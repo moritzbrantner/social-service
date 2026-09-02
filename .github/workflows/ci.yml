@@ -9,6 +9,16 @@ permissions:
   contents: read
 
 jobs:
+  findings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: moritzbrantner/coding-tooling@1b32c05803254d2dfeb872377f8bb7aff4c9e057
+        with:
+          operation: findings
+          install-mode: none
+          report-path: .artifacts/coding-tooling/findings.json
+
   rust:
     runs-on: ubuntu-latest
     steps:
