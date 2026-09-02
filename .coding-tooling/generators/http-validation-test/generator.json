@@ -28,7 +28,7 @@
   "compose": [],
   "prerequisites": [
     { "kind": "file", "path": "Cargo.toml" },
-    { "kind": "file", "path": "tests/support/mod.rs" }
+    { "kind": "file", "path": "tests/support/validation.rs" }
   ],
   "postconditions": ["format:check"]
 }
