@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "http-validation-test",
+  "description": "Create a deterministic HTTP integration test for a committed hermetic validation case.",
+  "rules": ["TEST-006", "TEST-009", "TEST-010"],
+  "technologies": ["rust"],
+  "inputs": {
+    "case": {
+      "type": "enum",
+      "required": true,
+      "values": [
+        "profile-empty-display-name",
+        "media-empty-url",
+        "post-empty-body",
+        "comment-empty-body",
+        "conversation-single-member"
+      ]
+    }
+  },
+  "target": { "kind": "root" },
+  "operations": [
+    {
+      "kind": "create-file",
+      "template": "templates/test.rs.tmpl",
+      "path": "tests/{{case | snake}}_validation.rs"
+    }
+  ],
+  "compose": [],
+  "prerequisites": [
+    { "kind": "file", "path": "Cargo.toml" },
+    { "kind": "file", "path": "tests/support/mod.rs" }
+  ],
+  "postconditions": ["format:check"]
+}
