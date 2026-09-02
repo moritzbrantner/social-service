@@ -60,7 +60,16 @@ pub enum ValidationCase {
 }
 
 impl ValidationCase {
-    fn request(self) -> (&'static str, Method, &'static str, &'static str, bool, &'static str) {
+    fn request(
+        self,
+    ) -> (
+        &'static str,
+        Method,
+        &'static str,
+        &'static str,
+        bool,
+        &'static str,
+    ) {
         match self {
             Self::ProfileEmptyDisplayName => (
                 "profiles",
@@ -113,7 +122,9 @@ pub async fn assert_validation_case(case: ValidationCase) {
         .uri(uri)
         .header("content-type", "application/json");
     if authenticated {
-        request = request.header("x-app-id", APP_ID).header("x-user-id", USER_ID);
+        request = request
+            .header("x-app-id", APP_ID)
+            .header("x-user-id", USER_ID);
     }
 
     let response = app(test_state(features))
