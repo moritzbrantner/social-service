@@ -5,10 +5,12 @@
   "type": "module",
   "exports": "./src/index.ts",
   "scripts": {
-    "lint": "npx --yes oxlint@1.80.0 src --format=github",
+    "lint": "oxlint src --format=github",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "oxlint": "1.80.0",
+    "oxlint-tsgolint": "7.0.2001",
     "typescript": "5.9.2"
   }
 }
