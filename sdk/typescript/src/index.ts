@@ -5,9 +5,11 @@ export type {
   Conversation,
   Feature,
   FeatureState,
+  FollowEdge,
   Id,
   MediaAsset,
   Message,
   Post,
   Profile,
+  Visibility,
 } from "./types";

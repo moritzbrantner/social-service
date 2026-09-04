@@ -2,11 +2,13 @@ import type {
   Comment,
   Conversation,
   FeatureState,
+  FollowEdge,
   Id,
   MediaAsset,
   Message,
   Post,
   Profile,
+  Visibility,
 } from "./types";
 
 export type SocialClientOptions = {
@@ -41,11 +43,15 @@ export function createSocialClient(options: SocialClientOptions) {
   return {
     features: () => request<FeatureState>("/v1/features"),
     profile: (userId: Id) => request<Profile>(`/v1/profiles/${userId}`),
-    upsertProfile: (input: { displayName: string; bio?: string | null; avatarMediaId?: Id | null }) =>
-      request<Profile>("/v1/profiles/me", { method: "PUT", body: JSON.stringify(input) }),
+    upsertProfile: (input: {
+      displayName: string;
+      bio?: string | null;
+      avatarMediaId?: Id | null;
+      visibility?: Visibility;
+    }) => request<Profile>("/v1/profiles/me", { method: "PUT", body: JSON.stringify(input) }),
     registerMedia: (input: { url: string; contentType: string }) =>
       request<MediaAsset>("/v1/media", { method: "POST", body: JSON.stringify(input) }),
-    createPost: (input: { body: string; mediaIds?: Id[] }) =>
+    createPost: (input: { body: string; mediaIds?: Id[]; visibility?: Visibility }) =>
       request<Post>("/v1/posts", { method: "POST", body: JSON.stringify(input) }),
     post: (postId: Id) => request<Post>(`/v1/posts/${postId}`),
     deletePost: (postId: Id) => request<void>(`/v1/posts/${postId}`, { method: "DELETE" }),
@@ -54,6 +60,10 @@ export function createSocialClient(options: SocialClientOptions) {
       request<Comment>(`/v1/posts/${postId}/comments`, { method: "POST", body: JSON.stringify({ body }) }),
     follow: (userId: Id) => request<void>(`/v1/follows/${userId}`, { method: "PUT" }),
     unfollow: (userId: Id) => request<void>(`/v1/follows/${userId}`, { method: "DELETE" }),
+    followers: (userId: Id, limit = 50) =>
+      request<FollowEdge[]>(`/v1/follows/${userId}/followers?limit=${limit}`),
+    following: (userId: Id, limit = 50) =>
+      request<FollowEdge[]>(`/v1/follows/${userId}/following?limit=${limit}`),
     timeline: (limit = 50) => request<Post[]>(`/v1/timeline?limit=${limit}`),
     createConversation: (memberIds: Id[]) =>
       request<Conversation>("/v1/conversations", { method: "POST", body: JSON.stringify({ memberIds }) }),

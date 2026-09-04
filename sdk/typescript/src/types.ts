@@ -1,10 +1,13 @@
 export type Id = string;
 
+export type Visibility = "public" | "private";
+
 export type Profile = {
   userId: Id;
   displayName: string;
   bio: string | null;
   avatarMediaId: Id | null;
+  visibility: Visibility;
   createdAt: string;
   updatedAt: string;
   version: number;
@@ -24,6 +27,7 @@ export type Post = {
   id: Id;
   authorId: Id;
   body: string;
+  visibility: Visibility;
   createdAt: string;
   updatedAt: string;
   version: number;
@@ -38,6 +42,12 @@ export type Comment = {
   createdAt: string;
   updatedAt: string;
   version: number;
+};
+
+export type FollowEdge = {
+  followerId: Id;
+  followedId: Id;
+  createdAt: string;
 };
 
 export type Conversation = {

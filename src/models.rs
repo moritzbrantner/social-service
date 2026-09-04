@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+use crate::visibility::Visibility;
+
 #[derive(Debug, Serialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct Profile {
@@ -10,6 +12,7 @@ pub struct Profile {
     pub display_name: String,
     pub bio: Option<String>,
     pub avatar_media_id: Option<Uuid>,
+    pub visibility: Visibility,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub version: i64,
@@ -21,6 +24,7 @@ pub struct UpsertProfile {
     pub display_name: String,
     pub bio: Option<String>,
     pub avatar_media_id: Option<Uuid>,
+    pub visibility: Option<Visibility>,
 }
 
 #[derive(Debug, Serialize, FromRow)]
@@ -48,6 +52,7 @@ pub struct PostRow {
     pub id: Uuid,
     pub author_id: Uuid,
     pub body: String,
+    pub visibility: Visibility,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub version: i64,
@@ -67,6 +72,7 @@ pub struct CreatePost {
     pub body: String,
     #[serde(default)]
     pub media_ids: Vec<Uuid>,
+    pub visibility: Option<Visibility>,
 }
 
 #[derive(Debug, Serialize, FromRow)]
@@ -84,6 +90,14 @@ pub struct Comment {
 #[derive(Debug, Deserialize)]
 pub struct CreateComment {
     pub body: String,
+}
+
+#[derive(Debug, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct FollowEdge {
+    pub follower_id: Uuid,
+    pub followed_id: Uuid,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize, FromRow)]

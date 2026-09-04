@@ -6,7 +6,7 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    auth::{RequestContext, app_id},
+    auth::{RequestContext, app_id, optional_user_id},
     error::ApiError,
     features::Feature,
     models::{Profile, UpsertProfile},
@@ -20,11 +20,13 @@ pub async fn get_profile(
 ) -> Result<Json<Profile>, ApiError> {
     state.features.require(Feature::Profiles)?;
     let app_id = app_id(&headers)?.0;
+    let viewer_id = optional_user_id(&headers)?.map(|user_id| user_id.0);
     let profile = sqlx::query_as::<_, Profile>(
-        "SELECT user_id, display_name, bio, avatar_media_id, created_at, updated_at, version FROM profiles WHERE app_id = $1 AND user_id = $2",
+        "SELECT user_id, display_name, bio, avatar_media_id, visibility, created_at, updated_at, version FROM profiles WHERE app_id = $1 AND user_id = $2 AND (visibility = 'public' OR user_id = $3)",
     )
     .bind(app_id)
     .bind(user_id)
+    .bind(viewer_id)
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound("profile"))?;
@@ -58,16 +60,44 @@ pub async fn upsert_profile(
     }
 
     let profile = sqlx::query_as::<_, Profile>(
-        "INSERT INTO profiles (app_id, user_id, display_name, bio, avatar_media_id) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (app_id, user_id) DO UPDATE SET display_name = EXCLUDED.display_name, bio = EXCLUDED.bio, avatar_media_id = EXCLUDED.avatar_media_id, updated_at = now(), version = profiles.version + 1 RETURNING user_id, display_name, bio, avatar_media_id, created_at, updated_at, version",
+        "INSERT INTO profiles (app_id, user_id, display_name, bio, avatar_media_id, visibility) VALUES ($1, $2, $3, $4, $5, COALESCE($6, 'public'::social_visibility)) ON CONFLICT (app_id, user_id) DO UPDATE SET display_name = EXCLUDED.display_name, bio = EXCLUDED.bio, avatar_media_id = EXCLUDED.avatar_media_id, visibility = COALESCE($6, profiles.visibility), updated_at = now(), version = profiles.version + 1 RETURNING user_id, display_name, bio, avatar_media_id, visibility, created_at, updated_at, version",
     )
     .bind(context.app_id.0)
     .bind(context.user_id.0)
     .bind(input.display_name.trim())
-    .bind(input.bio.as_deref().map(str::trim).filter(|value| !value.is_empty()))
+    .bind(
+        input
+            .bio
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+    )
     .bind(input.avatar_media_id)
+    .bind(input.visibility)
     .fetch_one(&state.pool)
     .await?;
     Ok(Json(profile))
+}
+
+pub(crate) async fn ensure_profile_visible(
+    state: &AppState,
+    app_id: Uuid,
+    user_id: Uuid,
+    viewer_id: Option<Uuid>,
+) -> Result<(), ApiError> {
+    let visible = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM profiles WHERE app_id = $1 AND user_id = $2 AND (visibility = 'public' OR user_id = $3))",
+    )
+    .bind(app_id)
+    .bind(user_id)
+    .bind(viewer_id)
+    .fetch_one(&state.pool)
+    .await?;
+    if visible {
+        Ok(())
+    } else {
+        Err(ApiError::NotFound("profile"))
+    }
 }
 
 fn validate_profile(input: &UpsertProfile) -> Result<(), ApiError> {
