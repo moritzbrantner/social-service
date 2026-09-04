@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Follow the live `moritzbrantner/coding-agent-conventions` rules applicable to Rust, PostgreSQL, Docker, and TypeScript.
+Follow the committed `.conventions/` snapshot selected by `conventions.json` and locked by `conventions.lock.json`. Refresh that snapshot through `coding-tooling`; do not silently substitute live convention content during ordinary repository work.
 
 Repository-specific decisions:
 
