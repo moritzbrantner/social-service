@@ -2,7 +2,16 @@
   "schemaVersion": 1,
   "profile": "repository-foundation-v1",
   "tiers": {
-    "fast": ["lint"]
+    "fast": ["format:check", "lint", "typecheck", "test:unit"],
+    "integration": ["test:integration"],
+    "full": ["format:check", "lint", "typecheck", "test:unit", "test:integration", "build"]
   },
-  "requiredCapabilities": ["lint"]
+  "requiredCapabilities": ["lint", "typecheck"],
+  "optionalCapabilities": ["format:check", "test:unit", "test:integration", "build"],
+  "capabilityCommands": {
+    "social-service": {
+      "typecheck": ["cargo", "check", "--locked", "--all-targets", "--all-features"],
+      "test:integration": ["bash", "scripts/test-integration.sh"]
+    }
+  }
 }
