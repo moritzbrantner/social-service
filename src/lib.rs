@@ -5,6 +5,7 @@ pub mod features;
 pub mod models;
 pub mod routes;
 pub mod state;
+pub mod visibility;
 
 use axum::{Router, routing::get};
 use state::AppState;

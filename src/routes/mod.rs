@@ -29,6 +29,8 @@ pub fn router() -> Router<AppState> {
             "/follows/{user_id}",
             put(posts::follow_user).delete(posts::unfollow_user),
         )
+        .route("/follows/{user_id}/followers", get(posts::followers))
+        .route("/follows/{user_id}/following", get(posts::following))
         .route("/timeline", get(posts::timeline))
         .route(
             "/conversations",

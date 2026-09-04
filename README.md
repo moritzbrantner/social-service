@@ -7,9 +7,10 @@ Reusable modular social backend for Next.js, Expo, and other applications.
 One deployable Rust/Axum service with internal modules for:
 
 - profiles and avatars/media references;
-- posts, comments, follows, and a chronological following timeline;
+- posts, comments, follows, follow-graph reads, and a chronological following timeline;
 - conversations and messages with media attachments;
 - deterministic capability resolution;
+- shared public/private visibility policy for profiles and posts;
 - PostgreSQL persistence scoped by `X-App-Id`;
 - a small framework-independent TypeScript SDK.
 
@@ -50,6 +51,23 @@ X-App-Id: 00000000-0000-0000-0000-000000000001
 X-User-Id: 00000000-0000-0000-0000-000000000002
 ```
 
+Public profile, post, comment-list, and follow-graph reads require `X-App-Id`; `X-User-Id` is optional for those reads and is used when checking owner access to private resources. A present user header is always validated. Mutating endpoints and the personal timeline still require both headers.
+
+## Visibility
+
+Profiles and posts have stable `public | private` visibility with `public` as the default for existing and newly created data.
+
+The minimal policy is intentionally strict and deterministic:
+
+- public resources are readable inside the same app scope;
+- private profiles and posts are readable only by their owner;
+- comments inherit their post's visibility boundary;
+- a user's follow graph can be inspected only when that user's profile is visible to the caller;
+- timelines include public followed posts plus the current user's own posts;
+- changing a profile to private does not prevent the current user from unfollowing it.
+
+`private` does **not** currently mean "approved followers can read it." Follow requests/approval are a separate future capability and will not be inferred from the existing unilateral `follows` relation. Visibility is a baseline safety policy rather than a feature flag, so configuration cannot accidentally disable privacy and expose data.
+
 ## Features
 
 Set `SOCIAL_FEATURES` to a comma-separated subset of the capabilities implemented by this deployment:
@@ -88,11 +106,15 @@ GET    /v1/posts/:post_id/comments
 POST   /v1/posts/:post_id/comments
 PUT    /v1/follows/:user_id
 DELETE /v1/follows/:user_id
+GET    /v1/follows/:user_id/followers
+GET    /v1/follows/:user_id/following
 GET    /v1/timeline
 POST   /v1/conversations
 GET    /v1/conversations
 GET    /v1/conversations/:conversation_id/messages
 POST   /v1/conversations/:conversation_id/messages
 ```
+
+Follow graph reads return bounded `FollowEdge` records rather than profile projections. This keeps relationship ownership separate from profile presentation and lets clients batch or compose profile reads explicitly.
 
 The TypeScript client lives in `sdk/typescript`.
