@@ -21,6 +21,30 @@ jobs:
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo test --all-targets --all-features
 
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.11-alpine
+        env:
+          POSTGRES_DB: social
+          POSTGRES_USER: social
+          POSTGRES_PASSWORD: social
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U social -d social"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgres://social:social@localhost:5432/social
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --test database_visibility -- --ignored --nocapture
+
   typescript:
     runs-on: ubuntu-latest
     defaults:
