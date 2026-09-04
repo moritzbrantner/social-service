@@ -1,0 +1,8 @@
+{
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "warn"
+  },
+  "plugins": ["typescript", "oxc"]
+}

@@ -5,6 +5,7 @@
   "type": "module",
   "exports": "./src/index.ts",
   "scripts": {
+    "lint": "npx --yes oxlint@1.80.0 src --format=github",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
