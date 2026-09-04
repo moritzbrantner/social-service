@@ -60,3 +60,11 @@ export type Message = {
 };
 
 export type Feature = "profiles" | "media" | "posts" | "comments" | "follows" | "chat";
+
+export type FeatureState = {
+  enabled: Feature[];
+  implemented: Feature[];
+  deploymentSupported: Feature[];
+  appRequested: Feature[];
+  effective: Feature[];
+};

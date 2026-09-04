@@ -1,4 +1,13 @@
-import type { Comment, Conversation, Feature, Id, MediaAsset, Message, Post, Profile } from "./types";
+import type {
+  Comment,
+  Conversation,
+  FeatureState,
+  Id,
+  MediaAsset,
+  Message,
+  Post,
+  Profile,
+} from "./types";
 
 export type SocialClientOptions = {
   baseUrl: string;
@@ -30,7 +39,7 @@ export function createSocialClient(options: SocialClientOptions) {
   };
 
   return {
-    features: () => request<{ enabled: Feature[] }>("/v1/features"),
+    features: () => request<FeatureState>("/v1/features"),
     profile: (userId: Id) => request<Profile>(`/v1/profiles/${userId}`),
     upsertProfile: (input: { displayName: string; bio?: string | null; avatarMediaId?: Id | null }) =>
       request<Profile>("/v1/profiles/me", { method: "PUT", body: JSON.stringify(input) }),

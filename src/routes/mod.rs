@@ -48,6 +48,10 @@ pub async fn health() -> &'static str {
 #[serde(rename_all = "camelCase")]
 pub struct FeaturesResponse {
     enabled: Vec<Feature>,
+    implemented: Vec<Feature>,
+    deployment_supported: Vec<Feature>,
+    app_requested: Vec<Feature>,
+    effective: Vec<Feature>,
 }
 
 pub async fn features(
@@ -55,5 +59,9 @@ pub async fn features(
 ) -> Json<FeaturesResponse> {
     Json(FeaturesResponse {
         enabled: state.features.enabled(),
+        implemented: state.features.implemented(),
+        deployment_supported: state.features.deployment_supported(),
+        app_requested: state.features.app_requested(),
+        effective: state.features.effective(),
     })
 }
