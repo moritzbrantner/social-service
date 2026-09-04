@@ -40,7 +40,7 @@ async fn health_is_reachable_through_the_composed_router() {
 
 #[tokio::test]
 async fn feature_configuration_is_exposed_through_the_http_boundary() {
-    let response = app(test_state("chat,profiles"))
+    let response = app(test_state("comments,follows"))
         .oneshot(
             Request::builder()
                 .uri("/v1/features")
@@ -60,5 +60,14 @@ async fn feature_configuration_is_exposed_through_the_http_boundary() {
     let document: serde_json::Value =
         serde_json::from_slice(&body).expect("feature response should be valid JSON");
 
-    assert_eq!(document, json!({ "enabled": ["profiles", "chat"] }));
+    assert_eq!(
+        document,
+        json!({
+            "enabled": ["profiles", "posts", "comments", "follows"],
+            "implemented": ["profiles", "media", "posts", "comments", "follows", "chat"],
+            "deploymentSupported": ["profiles", "posts", "comments", "follows"],
+            "appRequested": ["comments", "follows"],
+            "effective": ["profiles", "posts", "comments", "follows"]
+        })
+    );
 }
