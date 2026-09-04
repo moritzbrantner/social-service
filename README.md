@@ -9,7 +9,7 @@ One deployable Rust/Axum service with internal modules for:
 - profiles and avatars/media references;
 - posts, comments, follows, and a chronological following timeline;
 - conversations and messages with media attachments;
-- per-deployment feature flags;
+- deterministic capability resolution;
 - PostgreSQL persistence scoped by `X-App-Id`;
 - a small framework-independent TypeScript SDK.
 
@@ -52,15 +52,26 @@ X-User-Id: 00000000-0000-0000-0000-000000000002
 
 ## Features
 
-Set `SOCIAL_FEATURES` to a comma-separated subset of:
+Set `SOCIAL_FEATURES` to a comma-separated subset of the capabilities implemented by this deployment:
 
 ```text
 profiles,media,posts,comments,follows,chat
 ```
 
-Dependencies are validated at startup. `posts`, `follows`, `media`, and `chat` require `profiles`; `comments` requires `posts`.
+The resolver models four layers explicitly:
 
-`SOCIAL_FEATURES` controls which capabilities exist. Future advanced implementations should use separate strategy settings so the minimal implementation remains the default and richer media, filtering, moderation, storage, and timeline behavior can be enabled per deployment. Add new capability flags only when the capability itself is implemented; do not reserve flags preemptively.
+1. **implemented** - capabilities this version of `social-service` actually implements;
+2. **deployment-supported** - the deployment maximum selected by `SOCIAL_FEATURES`, including transitive requirements;
+3. **app-requested** - the application subset requested from that deployment;
+4. **app-effective** - the deterministic closure after required capabilities are enabled.
+
+The current deployment-wide mode treats `SOCIAL_FEATURES` as both the deployment selection and the application request. The resolver already supports a smaller per-app requested subset without changing capability semantics; persistence/configuration of per-app selections can be added later.
+
+Required capabilities are enabled transitively instead of requiring callers to repeat them manually. For example, requesting `comments` yields effective `profiles,posts,comments`. Unknown capabilities, requests outside the deployment-supported maximum, and declared conflicts fail deterministically. Optional relationships such as media attached to posts/chat are represented as integrations, not hard requirements.
+
+`GET /v1/features` preserves the existing `enabled` field and also exposes `implemented`, `deploymentSupported`, `appRequested`, and `effective`. `enabled` is the compatibility alias for the effective capability set.
+
+Feature flags govern behavior, not whether tables or stored data exist. Disabling a capability must not delete its data or change the stable contract. Future advanced implementations should use separate strategy settings so the minimal implementation remains permanently available and richer media, filtering, moderation, storage, and timeline behavior can be enabled without strategy leakage. Add new capability flags only when the capability itself is implemented; do not reserve flags preemptively.
 
 ## API
 
