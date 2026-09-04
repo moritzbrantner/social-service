@@ -212,10 +212,7 @@ pub enum FeatureError {
         dependency: Feature,
     },
     #[error("feature `{feature}` conflicts with `{conflict}`")]
-    Conflict {
-        feature: Feature,
-        conflict: Feature,
-    },
+    Conflict { feature: Feature, conflict: Feature },
 }
 
 #[cfg(test)]
