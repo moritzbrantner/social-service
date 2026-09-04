@@ -102,11 +102,45 @@ async fn visibility_and_follow_graph_hold_against_postgres() {
     )
     .await;
     assert_eq!(response.status(), StatusCode::OK);
+    assert!(
+        json_body(response)
+            .await
+            .as_array()
+            .expect("followers should be an array")
+            .is_empty(),
+        "public graph reads must not expose private follower identities"
+    );
+
+    let response = send(
+        &state,
+        Method::GET,
+        &format!("/v1/follows/{other_id}/followers"),
+        app_id,
+        Some(other_id),
+        None,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
     let followers = json_body(response).await;
     let followers = followers.as_array().expect("followers should be an array");
     assert_eq!(followers.len(), 1);
     assert_eq!(followers[0]["followerId"], owner_id.to_string());
     assert_eq!(followers[0]["followedId"], other_id.to_string());
+
+    let response = send(
+        &state,
+        Method::GET,
+        &format!("/v1/follows/{owner_id}/following"),
+        app_id,
+        Some(owner_id),
+        None,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let following = json_body(response).await;
+    let following = following.as_array().expect("following should be an array");
+    assert_eq!(following.len(), 1);
+    assert_eq!(following[0]["followedId"], other_id.to_string());
 
     let response = send(
         &state,
