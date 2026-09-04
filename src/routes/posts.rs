@@ -180,10 +180,11 @@ pub async fn followers(
     let viewer_id = optional_user_id(&headers)?.map(|user_id| user_id.0);
     ensure_profile_visible(&state, app_id, user_id, viewer_id).await?;
     let follows = sqlx::query_as::<_, FollowEdge>(
-        "SELECT follower_id, followed_id, created_at FROM follows WHERE app_id = $1 AND followed_id = $2 ORDER BY created_at DESC, follower_id ASC LIMIT $3",
+        "SELECT f.follower_id, f.followed_id, f.created_at FROM follows f JOIN profiles p ON p.app_id = f.app_id AND p.user_id = f.follower_id WHERE f.app_id = $1 AND f.followed_id = $2 AND (p.visibility = 'public' OR p.user_id = $3 OR $3 = $2) ORDER BY f.created_at DESC, f.follower_id ASC LIMIT $4",
     )
     .bind(app_id)
     .bind(user_id)
+    .bind(viewer_id)
     .bind(query.limit())
     .fetch_all(&state.pool)
     .await?;
@@ -201,10 +202,11 @@ pub async fn following(
     let viewer_id = optional_user_id(&headers)?.map(|user_id| user_id.0);
     ensure_profile_visible(&state, app_id, user_id, viewer_id).await?;
     let follows = sqlx::query_as::<_, FollowEdge>(
-        "SELECT follower_id, followed_id, created_at FROM follows WHERE app_id = $1 AND follower_id = $2 ORDER BY created_at DESC, followed_id ASC LIMIT $3",
+        "SELECT f.follower_id, f.followed_id, f.created_at FROM follows f JOIN profiles p ON p.app_id = f.app_id AND p.user_id = f.followed_id WHERE f.app_id = $1 AND f.follower_id = $2 AND (p.visibility = 'public' OR p.user_id = $3 OR $3 = $2) ORDER BY f.created_at DESC, f.followed_id ASC LIMIT $4",
     )
     .bind(app_id)
     .bind(user_id)
+    .bind(viewer_id)
     .bind(query.limit())
     .fetch_all(&state.pool)
     .await?;
