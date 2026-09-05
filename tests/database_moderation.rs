@@ -70,6 +70,49 @@ async fn moderation_is_app_scoped_idempotent_and_enforced() {
     let post = json_body(response).await;
     let post_id = Uuid::parse_str(post["id"].as_str().expect("post id")).expect("UUID post id");
 
+    let response = send(
+        &state,
+        Method::POST,
+        "/v1/posts",
+        app_id,
+        user_id,
+        None,
+        Some(json!({
+            "body": "private report target",
+            "visibility": "private"
+        })),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let private_post = json_body(response).await;
+    let private_post_id = Uuid::parse_str(
+        private_post["id"]
+            .as_str()
+            .expect("private post id"),
+    )
+    .expect("UUID private post id");
+
+    let response = send(
+        &state,
+        Method::POST,
+        "/v1/reports",
+        app_id,
+        moderator_id,
+        None,
+        Some(json!({
+            "targetType": "post",
+            "targetId": private_post_id,
+            "category": "spam",
+            "idempotencyKey": "private-probe"
+        })),
+    )
+    .await;
+    assert_eq!(
+        response.status(),
+        StatusCode::NOT_FOUND,
+        "reporting must not reveal a private target to a caller who cannot read it"
+    );
+
     let report_input = json!({
         "targetType": "post",
         "targetId": post_id,
