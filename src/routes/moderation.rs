@@ -598,7 +598,10 @@ pub async fn set_restriction(
     .bind(scope)
     .fetch_optional(&mut *transaction)
     .await?;
-    if previous.as_ref().is_some_and(|value| value.as_deref() == reason) {
+    if previous
+        .as_ref()
+        .is_some_and(|value| value.as_deref() == reason)
+    {
         transaction.commit().await?;
         return Ok(StatusCode::NO_CONTENT);
     }
