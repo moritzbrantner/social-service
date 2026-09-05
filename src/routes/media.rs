@@ -6,6 +6,7 @@ use crate::{
     error::ApiError,
     features::Feature,
     models::{MediaAsset, RegisterMedia},
+    moderation::{RestrictionScope, ensure_user_can},
     state::AppState,
 };
 
@@ -16,6 +17,7 @@ pub async fn register_media(
 ) -> Result<Json<MediaAsset>, ApiError> {
     state.features.require(Feature::Media)?;
     let context = RequestContext::from_headers(&headers)?;
+    ensure_user_can(&state, context, RestrictionScope::Media).await?;
     let url = input.url.trim();
     let content_type = input.content_type.trim();
     if url.is_empty() || url.chars().count() > 4096 {
