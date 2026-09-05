@@ -15,6 +15,7 @@ use crate::{
         Conversation, ConversationRow, CreateConversation, CreateMessage, LimitQuery, Message,
         MessageRow,
     },
+    moderation::{RestrictionScope, TargetType, ensure_content_visible, ensure_user_can},
     routes::posts::{attach_media, load_media_ids},
     state::AppState,
 };
@@ -26,6 +27,7 @@ pub async fn create_conversation(
 ) -> Result<Json<Conversation>, ApiError> {
     state.features.require(Feature::Chat)?;
     let context = RequestContext::from_headers(&headers)?;
+    ensure_user_can(&state, context, RestrictionScope::Chat).await?;
 
     let mut seen = HashSet::new();
     let mut member_ids = Vec::with_capacity(input.member_ids.len() + 1);
@@ -38,6 +40,20 @@ pub async fn create_conversation(
         return Err(ApiError::BadRequest(
             "a conversation must contain 2-100 unique members".to_owned(),
         ));
+    }
+    if state.features.is_enabled(Feature::Moderation) {
+        let unavailable = sqlx::query_scalar::<_, bool>(
+            "SELECT EXISTS(SELECT 1 FROM moderation_account_states WHERE app_id = $1 AND user_id = ANY($2) AND state IN ('suspended', 'banned'))",
+        )
+        .bind(context.app_id.0)
+        .bind(&member_ids)
+        .fetch_one(&state.pool)
+        .await?;
+        if unavailable {
+            return Err(ApiError::BadRequest(
+                "conversation members must be available in this app".to_owned(),
+            ));
+        }
     }
 
     let mut transaction = state.pool.begin().await?;
@@ -72,10 +88,11 @@ pub async fn list_conversations(
     state.features.require(Feature::Chat)?;
     let context = RequestContext::from_headers(&headers)?;
     let rows = sqlx::query_as::<_, ConversationRow>(
-        "SELECT c.id, c.created_at, c.updated_at, c.version FROM conversations c JOIN conversation_members cm ON cm.app_id = c.app_id AND cm.conversation_id = c.id WHERE c.app_id = $1 AND cm.user_id = $2 ORDER BY c.updated_at DESC LIMIT $3",
+        "SELECT c.id, c.created_at, c.updated_at, c.version FROM conversations c JOIN conversation_members cm ON cm.app_id = c.app_id AND cm.conversation_id = c.id WHERE c.app_id = $1 AND cm.user_id = $2 AND ($3 = FALSE OR NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'conversation' AND mcs.target_id = c.id AND mcs.state <> 'active')) ORDER BY c.updated_at DESC LIMIT $4",
     )
     .bind(context.app_id.0)
     .bind(context.user_id.0)
+    .bind(state.features.is_enabled(Feature::Moderation))
     .bind(query.limit())
     .fetch_all(&state.pool)
     .await?;
@@ -97,7 +114,16 @@ pub async fn create_message(
 ) -> Result<Json<Message>, ApiError> {
     state.features.require(Feature::Chat)?;
     let context = RequestContext::from_headers(&headers)?;
+    ensure_user_can(&state, context, RestrictionScope::Chat).await?;
     require_membership(&state, context.app_id.0, conversation_id, context.user_id.0).await?;
+    ensure_content_visible(
+        &state,
+        context.app_id.0,
+        TargetType::Conversation,
+        conversation_id,
+        "conversation",
+    )
+    .await?;
 
     let body = input
         .body
@@ -175,11 +201,20 @@ pub async fn list_messages(
     state.features.require(Feature::Chat)?;
     let context = RequestContext::from_headers(&headers)?;
     require_membership(&state, context.app_id.0, conversation_id, context.user_id.0).await?;
+    ensure_content_visible(
+        &state,
+        context.app_id.0,
+        TargetType::Conversation,
+        conversation_id,
+        "conversation",
+    )
+    .await?;
     let rows = sqlx::query_as::<_, MessageRow>(
-        "SELECT id, conversation_id, author_id, body, created_at, updated_at, version FROM messages WHERE app_id = $1 AND conversation_id = $2 ORDER BY created_at DESC LIMIT $3",
+        "SELECT m.id, m.conversation_id, m.author_id, m.body, m.created_at, m.updated_at, m.version FROM messages m WHERE m.app_id = $1 AND m.conversation_id = $2 AND ($3 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'message' AND mcs.target_id = m.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = m.author_id AND mas.state IN ('suspended', 'banned')))) ORDER BY m.created_at DESC LIMIT $4",
     )
     .bind(context.app_id.0)
     .bind(conversation_id)
+    .bind(state.features.is_enabled(Feature::Moderation))
     .bind(query.limit())
     .fetch_all(&state.pool)
     .await?;

@@ -1,5 +1,6 @@
 mod chat;
 mod media;
+mod moderation;
 mod posts;
 mod profiles;
 
@@ -40,6 +41,30 @@ pub fn router() -> Router<AppState> {
             "/conversations/{conversation_id}/messages",
             get(chat::list_messages).post(chat::create_message),
         )
+        .route("/reports", post(moderation::create_report))
+        .route("/moderation/me", get(moderation::me))
+        .route("/moderation/cases", get(moderation::list_cases))
+        .route(
+            "/moderation/cases/{case_id}",
+            put(moderation::set_case_state),
+        )
+        .route(
+            "/moderation/content/{target_type}/{target_id}",
+            get(moderation::review_target).put(moderation::set_content_state),
+        )
+        .route(
+            "/moderation/users/{user_id}",
+            get(moderation::get_user_moderation).put(moderation::set_account_state),
+        )
+        .route(
+            "/moderation/users/{user_id}/restrictions/{scope}",
+            put(moderation::set_restriction).delete(moderation::clear_restriction),
+        )
+        .route(
+            "/moderation/roles/{user_id}",
+            put(moderation::set_role).delete(moderation::clear_role),
+        )
+        .route("/moderation/audit", get(moderation::list_audit))
 }
 
 pub async fn health() -> &'static str {
