@@ -69,7 +69,14 @@ export type Message = {
   mediaIds: Id[];
 };
 
-export type Feature = "profiles" | "media" | "posts" | "comments" | "follows" | "chat";
+export type Feature =
+  | "profiles"
+  | "media"
+  | "posts"
+  | "comments"
+  | "follows"
+  | "chat"
+  | "moderation";
 
 export type FeatureState = {
   enabled: Feature[];
@@ -78,3 +85,88 @@ export type FeatureState = {
   appRequested: Feature[];
   effective: Feature[];
 };
+
+export type ModerationTargetType =
+  | "profile"
+  | "post"
+  | "comment"
+  | "media"
+  | "conversation"
+  | "message";
+
+export type ModerationContentState = "active" | "hidden" | "removed";
+export type ModerationAccountState = "active" | "suspended" | "banned";
+export type ModerationCaseState = "open" | "investigating" | "resolved" | "dismissed";
+export type ModerationRole = "moderator" | "admin";
+export type ModerationRestrictionScope = "profile" | "media" | "post" | "comment" | "follow" | "chat";
+export type ModerationCapability =
+  | "reports.read"
+  | "content.moderate"
+  | "users.restrict"
+  | "roles.manage"
+  | "audit.read";
+
+export type ModerationReport = {
+  id: Id;
+  caseId: Id;
+  reporterId: Id;
+  targetType: ModerationTargetType;
+  targetId: Id;
+  category: string;
+  context: string | null;
+  idempotencyKey: string | null;
+  createdAt: string;
+};
+
+export type ModerationCase = {
+  id: Id;
+  targetType: ModerationTargetType;
+  targetId: Id;
+  state: ModerationCaseState;
+  openedBy: Id;
+  resolutionNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+};
+
+export type ModerationMe = {
+  userId: Id;
+  role: ModerationRole | null;
+  effectiveCapabilities: ModerationCapability[];
+};
+
+export type ModerationRestriction = {
+  scope: ModerationRestrictionScope;
+  reason: string | null;
+  updatedAt: string;
+  version: number;
+};
+
+export type UserModeration = {
+  userId: Id;
+  state: ModerationAccountState;
+  restrictions: ModerationRestriction[];
+};
+
+export type ModerationAuditEvent = {
+  id: Id;
+  actorId: Id;
+  action: string;
+  targetKind: string;
+  targetId: Id | null;
+  reason: string | null;
+  previousState: string | null;
+  newState: string | null;
+  caseId: Id | null;
+  correlationId: string | null;
+  createdAt: string;
+};
+
+export type ModerationTargetSnapshot =
+  | { type: "profile"; data: Profile }
+  | { type: "post"; data: Omit<Post, "mediaIds"> }
+  | { type: "comment"; data: Comment }
+  | { type: "media"; data: MediaAsset }
+  | { type: "conversation"; data: Omit<Conversation, "memberIds"> }
+  | { type: "message"; data: Omit<Message, "mediaIds"> };

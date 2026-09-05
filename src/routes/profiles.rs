@@ -10,6 +10,10 @@ use crate::{
     error::ApiError,
     features::Feature,
     models::{Profile, UpsertProfile},
+    moderation::{
+        RestrictionScope, TargetType, ensure_account_visible, ensure_content_visible,
+        ensure_user_can,
+    },
     state::AppState,
 };
 
@@ -30,6 +34,8 @@ pub async fn get_profile(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound("profile"))?;
+    ensure_account_visible(&state, app_id, user_id).await?;
+    ensure_content_visible(&state, app_id, TargetType::Profile, user_id, "profile").await?;
     Ok(Json(profile))
 }
 
@@ -41,6 +47,7 @@ pub async fn upsert_profile(
     state.features.require(Feature::Profiles)?;
     validate_profile(&input)?;
     let context = RequestContext::from_headers(&headers)?;
+    ensure_user_can(&state, context, RestrictionScope::Profile).await?;
 
     if let Some(media_id) = input.avatar_media_id {
         state.features.require(Feature::Media)?;
@@ -93,11 +100,11 @@ pub(crate) async fn ensure_profile_visible(
     .bind(viewer_id)
     .fetch_one(&state.pool)
     .await?;
-    if visible {
-        Ok(())
-    } else {
-        Err(ApiError::NotFound("profile"))
+    if !visible {
+        return Err(ApiError::NotFound("profile"));
     }
+    ensure_account_visible(state, app_id, user_id).await?;
+    ensure_content_visible(state, app_id, TargetType::Profile, user_id, "profile").await
 }
 
 fn validate_profile(input: &UpsertProfile) -> Result<(), ApiError> {

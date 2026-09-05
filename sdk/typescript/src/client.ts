@@ -6,6 +6,8 @@ import type {
   Id,
   MediaAsset,
   Message,
+  ModerationReport,
+  ModerationTargetType,
   Post,
   Profile,
   Visibility,
@@ -42,6 +44,13 @@ export function createSocialClient(options: SocialClientOptions) {
 
   return {
     features: () => request<FeatureState>("/v1/features"),
+    report: (input: {
+      targetType: ModerationTargetType;
+      targetId: Id;
+      category: string;
+      context?: string | null;
+      idempotencyKey?: string | null;
+    }) => request<ModerationReport>("/v1/reports", { method: "POST", body: JSON.stringify(input) }),
     profile: (userId: Id) => request<Profile>(`/v1/profiles/${userId}`),
     upsertProfile: (input: {
       displayName: string;

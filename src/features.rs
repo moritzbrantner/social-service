@@ -14,16 +14,18 @@ pub enum Feature {
     Comments,
     Follows,
     Chat,
+    Moderation,
 }
 
 impl Feature {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Profiles,
         Self::Media,
         Self::Posts,
         Self::Comments,
         Self::Follows,
         Self::Chat,
+        Self::Moderation,
     ];
 
     fn parse(value: &str) -> Option<Self> {
@@ -34,6 +36,7 @@ impl Feature {
             "comments" => Some(Self::Comments),
             "follows" => Some(Self::Follows),
             "chat" => Some(Self::Chat),
+            "moderation" => Some(Self::Moderation),
             _ => None,
         }
     }
@@ -41,7 +44,9 @@ impl Feature {
     pub const fn requires(self) -> &'static [Self] {
         match self {
             Self::Profiles => &[],
-            Self::Media | Self::Posts | Self::Follows | Self::Chat => &[Self::Profiles],
+            Self::Media | Self::Posts | Self::Follows | Self::Chat | Self::Moderation => {
+                &[Self::Profiles]
+            }
             Self::Comments => &[Self::Posts],
         }
     }
@@ -49,6 +54,13 @@ impl Feature {
     pub const fn integrates_with(self) -> &'static [Self] {
         match self {
             Self::Profiles | Self::Posts | Self::Chat => &[Self::Media],
+            Self::Moderation => &[
+                Self::Media,
+                Self::Posts,
+                Self::Comments,
+                Self::Follows,
+                Self::Chat,
+            ],
             Self::Media | Self::Comments | Self::Follows => &[],
         }
     }
@@ -67,6 +79,7 @@ impl fmt::Display for Feature {
             Self::Comments => "comments",
             Self::Follows => "follows",
             Self::Chat => "chat",
+            Self::Moderation => "moderation",
         };
         f.write_str(value)
     }
@@ -126,8 +139,12 @@ impl FeatureSet {
         ordered(&self.app_effective)
     }
 
+    pub fn is_enabled(&self, feature: Feature) -> bool {
+        self.app_effective.contains(&feature)
+    }
+
     pub fn require(&self, feature: Feature) -> Result<(), ApiError> {
-        if self.app_effective.contains(&feature) {
+        if self.is_enabled(feature) {
             Ok(())
         } else {
             Err(ApiError::FeatureDisabled(feature))
@@ -232,6 +249,16 @@ mod tests {
         assert_eq!(
             features.effective(),
             vec![Feature::Profiles, Feature::Posts, Feature::Comments]
+        );
+    }
+
+    #[test]
+    fn moderation_resolves_profiles_without_enabling_social_surfaces() {
+        let features = FeatureSet::from_csv("moderation").expect("moderation should resolve");
+        assert_eq!(features.app_requested(), vec![Feature::Moderation]);
+        assert_eq!(
+            features.effective(),
+            vec![Feature::Profiles, Feature::Moderation]
         );
     }
 

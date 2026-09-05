@@ -12,6 +12,10 @@ use crate::{
     error::ApiError,
     features::Feature,
     models::{Comment, CreateComment, CreatePost, FollowEdge, LimitQuery, Post, PostRow},
+    moderation::{
+        RestrictionScope, TargetType, ensure_account_visible, ensure_content_visible,
+        ensure_user_can,
+    },
     state::AppState,
 };
 
@@ -24,6 +28,7 @@ pub async fn create_post(
 ) -> Result<Json<Post>, ApiError> {
     state.features.require(Feature::Posts)?;
     let context = RequestContext::from_headers(&headers)?;
+    ensure_user_can(&state, context, RestrictionScope::Post).await?;
     validate_text(&input.body, 10_000, "body")?;
     let media_ids = unique_media_ids(input.media_ids)?;
     if !media_ids.is_empty() {
@@ -74,6 +79,7 @@ pub async fn delete_post(
 ) -> Result<StatusCode, ApiError> {
     state.features.require(Feature::Posts)?;
     let context = RequestContext::from_headers(&headers)?;
+    ensure_user_can(&state, context, RestrictionScope::Post).await?;
     let result = sqlx::query("DELETE FROM posts WHERE app_id = $1 AND id = $2 AND author_id = $3")
         .bind(context.app_id.0)
         .bind(post_id)
@@ -95,6 +101,7 @@ pub async fn create_comment(
     state.features.require(Feature::Comments)?;
     validate_text(&input.body, 5_000, "body")?;
     let context = RequestContext::from_headers(&headers)?;
+    ensure_user_can(&state, context, RestrictionScope::Comment).await?;
     ensure_post_visible(&state, context.app_id.0, post_id, Some(context.user_id.0)).await?;
 
     let comment = sqlx::query_as::<_, Comment>(
@@ -121,10 +128,11 @@ pub async fn list_comments(
     let viewer_id = optional_user_id(&headers)?.map(|user_id| user_id.0);
     ensure_post_visible(&state, app_id, post_id, viewer_id).await?;
     let comments = sqlx::query_as::<_, Comment>(
-        "SELECT id, post_id, author_id, body, created_at, updated_at, version FROM comments WHERE app_id = $1 AND post_id = $2 ORDER BY created_at ASC, id ASC LIMIT $3",
+        "SELECT c.id, c.post_id, c.author_id, c.body, c.created_at, c.updated_at, c.version FROM comments c WHERE c.app_id = $1 AND c.post_id = $2 AND ($3 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'comment' AND mcs.target_id = c.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = c.author_id AND mas.state IN ('suspended', 'banned')))) ORDER BY c.created_at ASC, c.id ASC LIMIT $4",
     )
     .bind(app_id)
     .bind(post_id)
+    .bind(state.features.is_enabled(Feature::Moderation))
     .bind(query.limit())
     .fetch_all(&state.pool)
     .await?;
@@ -138,6 +146,7 @@ pub async fn follow_user(
 ) -> Result<StatusCode, ApiError> {
     state.features.require(Feature::Follows)?;
     let context = RequestContext::from_headers(&headers)?;
+    ensure_user_can(&state, context, RestrictionScope::Follow).await?;
     if user_id == context.user_id.0 {
         return Err(ApiError::BadRequest(
             "users cannot follow themselves".to_owned(),
@@ -160,6 +169,7 @@ pub async fn unfollow_user(
 ) -> Result<StatusCode, ApiError> {
     state.features.require(Feature::Follows)?;
     let context = RequestContext::from_headers(&headers)?;
+    ensure_user_can(&state, context, RestrictionScope::Follow).await?;
     sqlx::query("DELETE FROM follows WHERE app_id = $1 AND follower_id = $2 AND followed_id = $3")
         .bind(context.app_id.0)
         .bind(context.user_id.0)
@@ -180,11 +190,12 @@ pub async fn followers(
     let viewer_id = optional_user_id(&headers)?.map(|user_id| user_id.0);
     ensure_profile_visible(&state, app_id, user_id, viewer_id).await?;
     let follows = sqlx::query_as::<_, FollowEdge>(
-        "SELECT f.follower_id, f.followed_id, f.created_at FROM follows f JOIN profiles p ON p.app_id = f.app_id AND p.user_id = f.follower_id WHERE f.app_id = $1 AND f.followed_id = $2 AND (p.visibility = 'public' OR p.user_id = $3 OR $3 = $2) ORDER BY f.created_at DESC, f.follower_id ASC LIMIT $4",
+        "SELECT f.follower_id, f.followed_id, f.created_at FROM follows f JOIN profiles p ON p.app_id = f.app_id AND p.user_id = f.follower_id WHERE f.app_id = $1 AND f.followed_id = $2 AND (p.visibility = 'public' OR p.user_id = $3 OR $3 = $2) AND ($4 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.user_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'profile' AND mcs.target_id = p.user_id AND mcs.state <> 'active'))) ORDER BY f.created_at DESC, f.follower_id ASC LIMIT $5",
     )
     .bind(app_id)
     .bind(user_id)
     .bind(viewer_id)
+    .bind(state.features.is_enabled(Feature::Moderation))
     .bind(query.limit())
     .fetch_all(&state.pool)
     .await?;
@@ -202,11 +213,12 @@ pub async fn following(
     let viewer_id = optional_user_id(&headers)?.map(|user_id| user_id.0);
     ensure_profile_visible(&state, app_id, user_id, viewer_id).await?;
     let follows = sqlx::query_as::<_, FollowEdge>(
-        "SELECT f.follower_id, f.followed_id, f.created_at FROM follows f JOIN profiles p ON p.app_id = f.app_id AND p.user_id = f.followed_id WHERE f.app_id = $1 AND f.follower_id = $2 AND (p.visibility = 'public' OR p.user_id = $3 OR $3 = $2) ORDER BY f.created_at DESC, f.followed_id ASC LIMIT $4",
+        "SELECT f.follower_id, f.followed_id, f.created_at FROM follows f JOIN profiles p ON p.app_id = f.app_id AND p.user_id = f.followed_id WHERE f.app_id = $1 AND f.follower_id = $2 AND (p.visibility = 'public' OR p.user_id = $3 OR $3 = $2) AND ($4 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.user_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'profile' AND mcs.target_id = p.user_id AND mcs.state <> 'active'))) ORDER BY f.created_at DESC, f.followed_id ASC LIMIT $5",
     )
     .bind(app_id)
     .bind(user_id)
     .bind(viewer_id)
+    .bind(state.features.is_enabled(Feature::Moderation))
     .bind(query.limit())
     .fetch_all(&state.pool)
     .await?;
@@ -222,10 +234,11 @@ pub async fn timeline(
     state.features.require(Feature::Follows)?;
     let context = RequestContext::from_headers(&headers)?;
     let rows = sqlx::query_as::<_, PostRow>(
-        "SELECT p.id, p.author_id, p.body, p.visibility, p.created_at, p.updated_at, p.version FROM posts p WHERE p.app_id = $1 AND (p.author_id = $2 OR EXISTS (SELECT 1 FROM follows f WHERE f.app_id = $1 AND f.follower_id = $2 AND f.followed_id = p.author_id)) AND (p.visibility = 'public' OR p.author_id = $2) ORDER BY p.created_at DESC, p.id ASC LIMIT $3",
+        "SELECT p.id, p.author_id, p.body, p.visibility, p.created_at, p.updated_at, p.version FROM posts p WHERE p.app_id = $1 AND (p.author_id = $2 OR EXISTS (SELECT 1 FROM follows f WHERE f.app_id = $1 AND f.follower_id = $2 AND f.followed_id = p.author_id)) AND (p.visibility = 'public' OR p.author_id = $2) AND ($3 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'post' AND mcs.target_id = p.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.author_id AND mas.state IN ('suspended', 'banned')))) ORDER BY p.created_at DESC, p.id ASC LIMIT $4",
     )
     .bind(context.app_id.0)
     .bind(context.user_id.0)
+    .bind(state.features.is_enabled(Feature::Moderation))
     .bind(query.limit())
     .fetch_all(&state.pool)
     .await?;
@@ -254,6 +267,8 @@ async fn load_post(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound("post"))?;
+    ensure_account_visible(state, app_id, row.author_id).await?;
+    ensure_content_visible(state, app_id, TargetType::Post, post_id, "post").await?;
     let media_ids = load_media_ids(state, app_id, "post_media", "post_id", post_id).await?;
     Ok(Post { row, media_ids })
 }
@@ -264,19 +279,17 @@ async fn ensure_post_visible(
     post_id: Uuid,
     viewer_id: Option<Uuid>,
 ) -> Result<(), ApiError> {
-    let visible = sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS(SELECT 1 FROM posts WHERE app_id = $1 AND id = $2 AND (visibility = 'public' OR author_id = $3))",
+    let author_id = sqlx::query_scalar::<_, Uuid>(
+        "SELECT author_id FROM posts WHERE app_id = $1 AND id = $2 AND (visibility = 'public' OR author_id = $3)",
     )
     .bind(app_id)
     .bind(post_id)
     .bind(viewer_id)
-    .fetch_one(&state.pool)
-    .await?;
-    if visible {
-        Ok(())
-    } else {
-        Err(ApiError::NotFound("post"))
-    }
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(ApiError::NotFound("post"))?;
+    ensure_account_visible(state, app_id, author_id).await?;
+    ensure_content_visible(state, app_id, TargetType::Post, post_id, "post").await
 }
 
 pub(crate) async fn load_media_ids(
@@ -287,11 +300,12 @@ pub(crate) async fn load_media_ids(
     owner_id: Uuid,
 ) -> Result<Vec<Uuid>, ApiError> {
     let sql = format!(
-        "SELECT media_id FROM {table} WHERE app_id = $1 AND {owner_column} = $2 ORDER BY position ASC"
+        "SELECT relation.media_id FROM {table} relation WHERE relation.app_id = $1 AND relation.{owner_column} = $2 AND ($3 = FALSE OR NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'media' AND mcs.target_id = relation.media_id AND mcs.state <> 'active')) ORDER BY relation.position ASC"
     );
     Ok(sqlx::query_scalar::<_, Uuid>(&sql)
         .bind(app_id)
         .bind(owner_id)
+        .bind(state.features.is_enabled(Feature::Moderation))
         .fetch_all(&state.pool)
         .await?)
 }
