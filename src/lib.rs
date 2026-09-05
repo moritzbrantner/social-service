@@ -3,6 +3,7 @@ pub mod config;
 pub mod error;
 pub mod features;
 pub mod models;
+pub mod moderation;
 pub mod routes;
 pub mod state;
 pub mod visibility;
