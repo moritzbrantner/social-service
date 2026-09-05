@@ -15,9 +15,7 @@ use crate::{
         Conversation, ConversationRow, CreateConversation, CreateMessage, LimitQuery, Message,
         MessageRow,
     },
-    moderation::{
-        RestrictionScope, TargetType, ensure_content_visible, ensure_user_can,
-    },
+    moderation::{RestrictionScope, TargetType, ensure_content_visible, ensure_user_can},
     routes::posts::{attach_media, load_media_ids},
     state::AppState,
 };
