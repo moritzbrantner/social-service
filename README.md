@@ -8,6 +8,7 @@ One deployable Rust/Axum service with internal modules for:
 
 - profiles and avatars/media references;
 - posts, comments, follows, follow-graph reads, and a chronological following timeline;
+- first-class groups with group-local roles and an optional linked group conversation;
 - conversations and messages with media attachments;
 - deterministic capability resolution;
 - shared public/private visibility policy for profiles and posts;
@@ -32,6 +33,8 @@ If scale later requires precomputed feeds, evolve toward a `timeline_entries(use
 
 `docs/social-capabilities.md` records planned social-domain evolution, including tree-shaped comments, reactions, private saves/bookmarks, votes, reposts, blocks/mutes, mentions, and notification boundaries.
 
+`docs/groups-and-commands.md` records the group/conversation ownership boundary and the structured command boundary used by voice, text, assistant, and automation consumers.
+
 ## Run
 
 ```bash
@@ -51,7 +54,7 @@ X-App-Id: 00000000-0000-0000-0000-000000000001
 X-User-Id: 00000000-0000-0000-0000-000000000002
 ```
 
-Public profile, post, comment-list, and follow-graph reads require `X-App-Id`; `X-User-Id` is optional for those reads and is used when checking owner access to private resources. A present user header is always validated. Mutating endpoints and the personal timeline still require both headers.
+Public profile, post, comment-list, and follow-graph reads require `X-App-Id`; `X-User-Id` is optional for those reads and is used when checking owner access to private resources. A present user header is always validated. Mutating endpoints, groups, chat, and the personal timeline require both headers.
 
 ## Visibility
 
@@ -68,12 +71,14 @@ The minimal policy is intentionally strict and deterministic:
 
 `private` does **not** currently mean "approved followers can read it." Follow requests/approval are a separate future capability and will not be inferred from the existing unilateral `follows` relation. Visibility is a baseline safety policy rather than a feature flag, so configuration cannot accidentally disable privacy and expose data.
 
+Groups are private membership-scoped resources in the MVP. Non-members do not receive group metadata. Public groups/discovery are separate future semantics and are not inferred from profile/post visibility.
+
 ## Features
 
 Set `SOCIAL_FEATURES` to a comma-separated subset of the capabilities implemented by this deployment:
 
 ```text
-profiles,media,posts,comments,follows,chat
+profiles,media,posts,comments,follows,groups,chat
 ```
 
 The resolver models four layers explicitly:
@@ -85,11 +90,21 @@ The resolver models four layers explicitly:
 
 The current deployment-wide mode treats `SOCIAL_FEATURES` as both the deployment selection and the application request. The resolver already supports a smaller per-app requested subset without changing capability semantics; persistence/configuration of per-app selections can be added later.
 
-Required capabilities are enabled transitively instead of requiring callers to repeat them manually. For example, requesting `comments` yields effective `profiles,posts,comments`. Unknown capabilities, requests outside the deployment-supported maximum, and declared conflicts fail deterministically. Optional relationships such as media attached to posts/chat are represented as integrations, not hard requirements.
+Required capabilities are enabled transitively instead of requiring callers to repeat them manually. For example, requesting `comments` yields effective `profiles,posts,comments`. Requesting `groups` yields `profiles,groups`; chat and media remain optional integrations. Unknown capabilities, requests outside the deployment-supported maximum, and declared conflicts fail deterministically.
 
 `GET /v1/features` preserves the existing `enabled` field and also exposes `implemented`, `deploymentSupported`, `appRequested`, and `effective`. `enabled` is the compatibility alias for the effective capability set.
 
 Feature flags govern behavior, not whether tables or stored data exist. Disabling a capability must not delete its data or change the stable contract. Future advanced implementations should use separate strategy settings so the minimal implementation remains permanently available and richer media, filtering, moderation, storage, and timeline behavior can be enabled without strategy leakage. Add new capability flags only when the capability itself is implemented; do not reserve flags preemptively.
+
+## Groups
+
+Groups own durable membership and group-local roles; conversations own messages. The primary group chat is linked through an association rather than making a conversation double as the group record.
+
+The creator is the owner. Owners and admins can update group metadata and add members. Owners alone manage roles and ownership transfer; admins can remove ordinary members. Owners must transfer ownership before leaving. Creating the primary chat is idempotent, and linked conversation membership follows current group membership without deleting historical messages. Joins, leaves, removals, and role changes are retained in an append-only membership event log.
+
+When moderation is enabled, suspended or banned accounts cannot mutate groups and unavailable accounts cannot be added. Group-local roles remain separate from platform-wide moderation authority.
+
+The TypeScript SDK exposes a `GroupOperation` union and `executeGroupOperation` for already-resolved commands. Speech recognition, natural-language parsing, and contact resolution stay outside this service.
 
 ## API
 
@@ -109,6 +124,15 @@ DELETE /v1/follows/:user_id
 GET    /v1/follows/:user_id/followers
 GET    /v1/follows/:user_id/following
 GET    /v1/timeline
+POST   /v1/groups
+GET    /v1/groups
+GET    /v1/groups/:group_id
+PUT    /v1/groups/:group_id
+PUT    /v1/groups/:group_id/members/:user_id
+DELETE /v1/groups/:group_id/members/:user_id
+PUT    /v1/groups/:group_id/members/:user_id/role
+POST   /v1/groups/:group_id/leave
+POST   /v1/groups/:group_id/chat
 POST   /v1/conversations
 GET    /v1/conversations
 GET    /v1/conversations/:conversation_id/messages
