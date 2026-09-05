@@ -2,6 +2,7 @@ pub mod auth;
 pub mod config;
 pub mod error;
 pub mod features;
+pub mod groups;
 pub mod models;
 pub mod moderation;
 pub mod routes;
