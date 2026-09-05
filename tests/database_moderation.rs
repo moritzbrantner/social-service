@@ -310,7 +310,10 @@ async fn moderation_is_app_scoped_idempotent_and_enforced() {
     )
     .await;
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(json_body(response).await.as_array().expect("cases").len(), 1);
+    assert_eq!(
+        json_body(response).await.as_array().expect("cases").len(),
+        1
+    );
 
     let response = send(
         &state,
