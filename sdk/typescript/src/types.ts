@@ -50,6 +50,47 @@ export type FollowEdge = {
   createdAt: string;
 };
 
+export type GroupRole = "owner" | "admin" | "member";
+
+export type GroupMember = {
+  userId: Id;
+  role: GroupRole;
+  joinedAt: string;
+  updatedAt: string;
+  version: number;
+};
+
+export type Group = {
+  id: Id;
+  name: string;
+  avatarMediaId: Id | null;
+  createdBy: Id;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+  members: GroupMember[];
+  chatConversationId: Id | null;
+};
+
+export type GroupOperation =
+  | {
+      type: "create";
+      name: string;
+      avatarMediaId?: Id | null;
+      memberIds?: Id[];
+    }
+  | {
+      type: "update";
+      groupId: Id;
+      name: string;
+      avatarMediaId?: Id | null;
+    }
+  | { type: "addMember"; groupId: Id; userId: Id }
+  | { type: "removeMember"; groupId: Id; userId: Id }
+  | { type: "setRole"; groupId: Id; userId: Id; role: GroupRole }
+  | { type: "leave"; groupId: Id }
+  | { type: "ensureChat"; groupId: Id };
+
 export type Conversation = {
   id: Id;
   memberIds: Id[];
@@ -75,6 +116,7 @@ export type Feature =
   | "posts"
   | "comments"
   | "follows"
+  | "groups"
   | "chat"
   | "moderation";
 
