@@ -1,4 +1,5 @@
 mod chat;
+mod groups;
 mod media;
 mod moderation;
 mod posts;
@@ -33,6 +34,27 @@ pub fn router() -> Router<AppState> {
         .route("/follows/{user_id}/followers", get(posts::followers))
         .route("/follows/{user_id}/following", get(posts::following))
         .route("/timeline", get(posts::timeline))
+        .route(
+            "/groups",
+            post(groups::create_group).get(groups::list_groups),
+        )
+        .route(
+            "/groups/{group_id}",
+            get(groups::get_group).put(groups::update_group),
+        )
+        .route(
+            "/groups/{group_id}/members/{user_id}",
+            put(groups::add_member).delete(groups::remove_member),
+        )
+        .route(
+            "/groups/{group_id}/members/{user_id}/role",
+            put(groups::set_member_role),
+        )
+        .route("/groups/{group_id}/leave", post(groups::leave_group))
+        .route(
+            "/groups/{group_id}/chat",
+            post(groups::ensure_group_chat),
+        )
         .route(
             "/conversations",
             post(chat::create_conversation).get(chat::list_conversations),
