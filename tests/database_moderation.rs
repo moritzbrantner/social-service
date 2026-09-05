@@ -85,12 +85,8 @@ async fn moderation_is_app_scoped_idempotent_and_enforced() {
     .await;
     assert_eq!(response.status(), StatusCode::OK);
     let private_post = json_body(response).await;
-    let private_post_id = Uuid::parse_str(
-        private_post["id"]
-            .as_str()
-            .expect("private post id"),
-    )
-    .expect("UUID private post id");
+    let private_post_id = Uuid::parse_str(private_post["id"].as_str().expect("private post id"))
+        .expect("UUID private post id");
 
     let response = send(
         &state,
