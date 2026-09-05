@@ -5,12 +5,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Transaction, Type};
 use uuid::Uuid;
 
-use crate::{
-    auth::RequestContext,
-    error::ApiError,
-    features::Feature,
-    state::AppState,
-};
+use crate::{auth::RequestContext, error::ApiError, features::Feature, state::AppState};
 
 const CAPABILITIES: HeaderName = HeaderName::from_static("x-social-moderation-capabilities");
 const REQUEST_ID: HeaderName = HeaderName::from_static("x-request-id");
@@ -478,13 +473,21 @@ mod tests {
 
     #[test]
     fn moderator_role_has_no_role_management_capability() {
-        assert!(Role::Moderator.capabilities().contains(&Capability::ReportsRead));
+        assert!(
+            Role::Moderator
+                .capabilities()
+                .contains(&Capability::ReportsRead)
+        );
         assert!(
             !Role::Moderator
                 .capabilities()
                 .contains(&Capability::RolesManage)
         );
-        assert!(Role::Admin.capabilities().contains(&Capability::RolesManage));
+        assert!(
+            Role::Admin
+                .capabilities()
+                .contains(&Capability::RolesManage)
+        );
     }
 
     #[test]
