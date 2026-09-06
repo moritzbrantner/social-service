@@ -10,6 +10,8 @@ use crate::{
     state::AppState,
 };
 
+type RoleTransition = (Option<GroupRole>, Option<GroupRole>);
+
 pub(super) async fn load_group(
     state: &AppState,
     app_id: Uuid,
@@ -135,9 +137,9 @@ pub(super) async fn append_membership_event(
     user_id: Uuid,
     event_type: &'static str,
     actor_id: Uuid,
-    previous_role: Option<GroupRole>,
-    new_role: Option<GroupRole>,
+    role_transition: RoleTransition,
 ) -> Result<(), ApiError> {
+    let (previous_role, new_role) = role_transition;
     sqlx::query(
         "INSERT INTO group_membership_events (id, app_id, group_id, user_id, event_type, actor_id, previous_role, new_role) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
     )
