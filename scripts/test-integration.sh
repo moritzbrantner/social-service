@@ -12,3 +12,4 @@ export DATABASE_URL="${DATABASE_URL:-postgres://social:social@localhost:5432/soc
 cargo test --locked --tests
 cargo test --locked --test database_visibility -- --ignored --nocapture
 cargo test --locked --test database_moderation -- --ignored --nocapture
+cargo test --locked --test database_groups -- --ignored --nocapture

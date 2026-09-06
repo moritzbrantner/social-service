@@ -3,6 +3,9 @@ import type {
   Conversation,
   FeatureState,
   FollowEdge,
+  Group,
+  GroupOperation,
+  GroupRole,
   Id,
   MediaAsset,
   Message,
@@ -42,6 +45,46 @@ export function createSocialClient(options: SocialClientOptions) {
     return (await response.json()) as T;
   };
 
+  const createGroup = (input: { name: string; avatarMediaId?: Id | null; memberIds?: Id[] }) =>
+    request<Group>("/v1/groups", { method: "POST", body: JSON.stringify(input) });
+  const group = (groupId: Id) => request<Group>(`/v1/groups/${groupId}`);
+  const updateGroup = (groupId: Id, input: { name: string; avatarMediaId?: Id | null }) =>
+    request<Group>(`/v1/groups/${groupId}`, { method: "PUT", body: JSON.stringify(input) });
+  const addGroupMember = (groupId: Id, userId: Id) =>
+    request<Group>(`/v1/groups/${groupId}/members/${userId}`, { method: "PUT" });
+  const removeGroupMember = (groupId: Id, userId: Id) =>
+    request<Group>(`/v1/groups/${groupId}/members/${userId}`, { method: "DELETE" });
+  const setGroupMemberRole = (groupId: Id, userId: Id, role: GroupRole) =>
+    request<Group>(`/v1/groups/${groupId}/members/${userId}/role`, {
+      method: "PUT",
+      body: JSON.stringify({ role }),
+    });
+  const leaveGroup = (groupId: Id) =>
+    request<void>(`/v1/groups/${groupId}/leave`, { method: "POST" });
+  const ensureGroupChat = (groupId: Id) =>
+    request<Conversation>(`/v1/groups/${groupId}/chat`, { method: "POST" });
+
+  const executeGroupOperation = async (
+    operation: GroupOperation,
+  ): Promise<Group | Conversation | void> => {
+    switch (operation.type) {
+      case "create":
+        return createGroup(operation);
+      case "update":
+        return updateGroup(operation.groupId, operation);
+      case "addMember":
+        return addGroupMember(operation.groupId, operation.userId);
+      case "removeMember":
+        return removeGroupMember(operation.groupId, operation.userId);
+      case "setRole":
+        return setGroupMemberRole(operation.groupId, operation.userId, operation.role);
+      case "leave":
+        return leaveGroup(operation.groupId);
+      case "ensureChat":
+        return ensureGroupChat(operation.groupId);
+    }
+  };
+
   return {
     features: () => request<FeatureState>("/v1/features"),
     report: (input: {
@@ -74,6 +117,16 @@ export function createSocialClient(options: SocialClientOptions) {
     following: (userId: Id, limit = 50) =>
       request<FollowEdge[]>(`/v1/follows/${userId}/following?limit=${limit}`),
     timeline: (limit = 50) => request<Post[]>(`/v1/timeline?limit=${limit}`),
+    createGroup,
+    groups: (limit = 50) => request<Group[]>(`/v1/groups?limit=${limit}`),
+    group,
+    updateGroup,
+    addGroupMember,
+    removeGroupMember,
+    setGroupMemberRole,
+    leaveGroup,
+    ensureGroupChat,
+    executeGroupOperation,
     createConversation: (memberIds: Id[]) =>
       request<Conversation>("/v1/conversations", { method: "POST", body: JSON.stringify({ memberIds }) }),
     conversations: (limit = 50) => request<Conversation[]>(`/v1/conversations?limit=${limit}`),

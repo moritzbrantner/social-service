@@ -13,17 +13,19 @@ pub enum Feature {
     Posts,
     Comments,
     Follows,
+    Groups,
     Chat,
     Moderation,
 }
 
 impl Feature {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::Profiles,
         Self::Media,
         Self::Posts,
         Self::Comments,
         Self::Follows,
+        Self::Groups,
         Self::Chat,
         Self::Moderation,
     ];
@@ -35,6 +37,7 @@ impl Feature {
             "posts" => Some(Self::Posts),
             "comments" => Some(Self::Comments),
             "follows" => Some(Self::Follows),
+            "groups" => Some(Self::Groups),
             "chat" => Some(Self::Chat),
             "moderation" => Some(Self::Moderation),
             _ => None,
@@ -44,9 +47,12 @@ impl Feature {
     pub const fn requires(self) -> &'static [Self] {
         match self {
             Self::Profiles => &[],
-            Self::Media | Self::Posts | Self::Follows | Self::Chat | Self::Moderation => {
-                &[Self::Profiles]
-            }
+            Self::Media
+            | Self::Posts
+            | Self::Follows
+            | Self::Groups
+            | Self::Chat
+            | Self::Moderation => &[Self::Profiles],
             Self::Comments => &[Self::Posts],
         }
     }
@@ -54,11 +60,13 @@ impl Feature {
     pub const fn integrates_with(self) -> &'static [Self] {
         match self {
             Self::Profiles | Self::Posts | Self::Chat => &[Self::Media],
+            Self::Groups => &[Self::Media, Self::Chat],
             Self::Moderation => &[
                 Self::Media,
                 Self::Posts,
                 Self::Comments,
                 Self::Follows,
+                Self::Groups,
                 Self::Chat,
             ],
             Self::Media | Self::Comments | Self::Follows => &[],
@@ -78,6 +86,7 @@ impl fmt::Display for Feature {
             Self::Posts => "posts",
             Self::Comments => "comments",
             Self::Follows => "follows",
+            Self::Groups => "groups",
             Self::Chat => "chat",
             Self::Moderation => "moderation",
         };
@@ -249,6 +258,16 @@ mod tests {
         assert_eq!(
             features.effective(),
             vec![Feature::Profiles, Feature::Posts, Feature::Comments]
+        );
+    }
+
+    #[test]
+    fn groups_resolve_profiles_without_forcing_chat() {
+        let features = FeatureSet::from_csv("groups").expect("groups should resolve");
+        assert_eq!(features.app_requested(), vec![Feature::Groups]);
+        assert_eq!(
+            features.effective(),
+            vec![Feature::Profiles, Feature::Groups]
         );
     }
 
