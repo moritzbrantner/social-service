@@ -30,9 +30,7 @@ pub async fn list_groups(
 
     let mut groups = Vec::with_capacity(group_ids.len());
     for group_id in group_ids {
-        groups.push(
-            load_group(&state, context.app_id.0, group_id, context.user_id.0).await?,
-        );
+        groups.push(load_group(&state, context.app_id.0, group_id, context.user_id.0).await?);
     }
     Ok(Json(groups))
 }
