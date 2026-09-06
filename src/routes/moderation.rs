@@ -12,6 +12,7 @@ use crate::{
     auth::RequestContext,
     error::ApiError,
     features::Feature,
+    groups::GroupRow,
     models::{Comment, ConversationRow, MediaAsset, MessageRow, PostRow, Profile},
     moderation::{
         AccountState, Capability, CaseState, ContentState, RestrictionScope, Role, TargetType,
@@ -19,6 +20,8 @@ use crate::{
     },
     state::AppState,
 };
+
+use super::groups::remove_non_owner_member;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -100,6 +103,13 @@ pub struct SetRole {
     reason: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RemoveGroupMember {
+    reason: Option<String>,
+    case_id: Option<Uuid>,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModerationMe {
@@ -153,6 +163,7 @@ pub enum TargetSnapshot {
     Post(PostRow),
     Comment(Comment),
     Media(MediaAsset),
+    Group(GroupRow),
     Conversation(ConversationRow),
     Message(MessageRow),
 }
@@ -337,6 +348,16 @@ pub async fn review_target(
             .await?
             .ok_or(ApiError::NotFound("moderation target"))?,
         ),
+        TargetType::Group => TargetSnapshot::Group(
+            sqlx::query_as::<_, GroupRow>(
+                "SELECT id, name, avatar_media_id, created_by, created_at, updated_at, version FROM groups WHERE app_id = $1 AND id = $2",
+            )
+            .bind(app_id)
+            .bind(target_id)
+            .fetch_optional(&state.pool)
+            .await?
+            .ok_or(ApiError::NotFound("moderation target"))?,
+        ),
         TargetType::Conversation => TargetSnapshot::Conversation(
             sqlx::query_as::<_, ConversationRow>(
                 "SELECT id, created_at, updated_at, version FROM conversations WHERE app_id = $1 AND id = $2",
@@ -474,6 +495,68 @@ pub async fn set_content_state(
         reason,
         Some(effective_previous.as_str()),
         Some(input.state.as_str()),
+        input.case_id,
+        correlation.as_deref(),
+    )
+    .await?;
+    transaction.commit().await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn force_remove_group_member(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((group_id, user_id)): Path<(Uuid, Uuid)>,
+    Json(input): Json<RemoveGroupMember>,
+) -> Result<StatusCode, ApiError> {
+    let actor = actor(&state, &headers).await?;
+    actor.require(Capability::UsersRestrict)?;
+    let reason = validate_reason(input.reason.as_deref())?;
+    if !target_exists(&state, actor.context.app_id.0, TargetType::Group, group_id).await? {
+        return Err(ApiError::NotFound("moderation target"));
+    }
+    ensure_case_matches(
+        &state,
+        actor.context.app_id.0,
+        input.case_id,
+        TargetType::Group,
+        group_id,
+    )
+    .await?;
+    let correlation = correlation_id(&headers)?;
+    let mut transaction = state.pool.begin().await?;
+    sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM groups WHERE app_id = $1 AND id = $2 FOR UPDATE",
+    )
+    .bind(actor.context.app_id.0)
+    .bind(group_id)
+    .fetch_optional(&mut *transaction)
+    .await?
+    .ok_or(ApiError::NotFound("moderation target"))?;
+
+    let removed_role = remove_non_owner_member(
+        &mut transaction,
+        actor.context.app_id.0,
+        group_id,
+        user_id,
+        actor.context.user_id.0,
+    )
+    .await?;
+    let Some(removed_role) = removed_role else {
+        transaction.commit().await?;
+        return Ok(StatusCode::NO_CONTENT);
+    };
+
+    let previous_state = format!("{user_id}:{}", removed_role.as_str());
+    append_audit(
+        &mut transaction,
+        &actor,
+        "group.member.remove",
+        "group",
+        Some(group_id),
+        reason,
+        Some(previous_state.as_str()),
+        Some("member_removed"),
         input.case_id,
         correlation.as_deref(),
     )
@@ -825,6 +908,16 @@ async fn ensure_reportable_target(
         TargetType::Media => {
             sqlx::query_scalar::<_, bool>(
                 "SELECT EXISTS(SELECT 1 FROM media_assets m WHERE m.app_id = $1 AND m.id = $2 AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'media' AND mcs.target_id = m.id AND mcs.state <> 'active') AND (m.owner_id = $3 OR EXISTS (SELECT 1 FROM post_media pm JOIN posts p ON p.app_id = pm.app_id AND p.id = pm.post_id WHERE pm.app_id = $1 AND pm.media_id = m.id AND (p.visibility = 'public' OR p.author_id = $3) AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.author_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'post' AND mcs.target_id = p.id AND mcs.state <> 'active')) OR EXISTS (SELECT 1 FROM message_media mm JOIN messages msg ON msg.app_id = mm.app_id AND msg.id = mm.message_id JOIN conversation_members cm ON cm.app_id = msg.app_id AND cm.conversation_id = msg.conversation_id AND cm.user_id = $3 WHERE mm.app_id = $1 AND mm.media_id = m.id AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = msg.author_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'conversation' AND mcs.target_id = msg.conversation_id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'message' AND mcs.target_id = msg.id AND mcs.state <> 'active'))))",
+            )
+            .bind(app_id)
+            .bind(target_id)
+            .bind(reporter_id)
+            .fetch_one(&state.pool)
+            .await?
+        }
+        TargetType::Group => {
+            sqlx::query_scalar::<_, bool>(
+                "SELECT EXISTS(SELECT 1 FROM groups g JOIN group_members gm ON gm.app_id = g.app_id AND gm.group_id = g.id WHERE g.app_id = $1 AND g.id = $2 AND gm.user_id = $3 AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = g.app_id AND mcs.target_type = 'group' AND mcs.target_id = g.id AND mcs.state <> 'active'))",
             )
             .bind(app_id)
             .bind(target_id)
