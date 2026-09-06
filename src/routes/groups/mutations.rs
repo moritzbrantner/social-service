@@ -15,10 +15,10 @@ use crate::{
 };
 
 use super::support::{
-    append_membership_event, ensure_group_actor_available, ensure_members_available,
-    ensure_members_available_in_transaction, group_member_ids, linked_chat_id, load_group,
-    lock_actor_role, normalize_members, sync_conversation_members, sync_linked_chat, touch_group,
-    validate_avatar, validate_name,
+    append_membership_event, ensure_group_actor_available, ensure_group_visible,
+    ensure_members_available, ensure_members_available_in_transaction, group_member_ids,
+    linked_chat_id, load_group, lock_actor_role, normalize_members, sync_conversation_members,
+    sync_linked_chat, touch_group, validate_avatar, validate_name,
 };
 
 pub async fn create_group(
@@ -28,7 +28,7 @@ pub async fn create_group(
 ) -> Result<Json<Group>, ApiError> {
     state.features.require(Feature::Groups)?;
     let context = RequestContext::from_headers(&headers)?;
-    ensure_group_actor_available(&state, context.app_id.0, context.user_id.0).await?;
+    ensure_group_actor_available(&state, context).await?;
     let name = validate_name(&input.name)?;
     if input.avatar_media_id.is_some() {
         state.features.require(Feature::Media)?;
@@ -99,7 +99,8 @@ pub async fn update_group(
 ) -> Result<Json<Group>, ApiError> {
     state.features.require(Feature::Groups)?;
     let context = RequestContext::from_headers(&headers)?;
-    ensure_group_actor_available(&state, context.app_id.0, context.user_id.0).await?;
+    ensure_group_actor_available(&state, context).await?;
+    ensure_group_visible(&state, context.app_id.0, group_id).await?;
     let name = validate_name(&input.name)?;
     if input.avatar_media_id.is_some() {
         state.features.require(Feature::Media)?;
@@ -146,7 +147,8 @@ pub async fn add_member(
 ) -> Result<Json<Group>, ApiError> {
     state.features.require(Feature::Groups)?;
     let context = RequestContext::from_headers(&headers)?;
-    ensure_group_actor_available(&state, context.app_id.0, context.user_id.0).await?;
+    ensure_group_actor_available(&state, context).await?;
+    ensure_group_visible(&state, context.app_id.0, group_id).await?;
 
     let mut transaction = state.pool.begin().await?;
     let actor_role = lock_actor_role(
@@ -219,7 +221,8 @@ pub async fn remove_member(
 ) -> Result<Json<Group>, ApiError> {
     state.features.require(Feature::Groups)?;
     let context = RequestContext::from_headers(&headers)?;
-    ensure_group_actor_available(&state, context.app_id.0, context.user_id.0).await?;
+    ensure_group_actor_available(&state, context).await?;
+    ensure_group_visible(&state, context.app_id.0, group_id).await?;
 
     let mut transaction = state.pool.begin().await?;
     let actor_role = lock_actor_role(
@@ -287,7 +290,8 @@ pub async fn set_member_role(
 ) -> Result<Json<Group>, ApiError> {
     state.features.require(Feature::Groups)?;
     let context = RequestContext::from_headers(&headers)?;
-    ensure_group_actor_available(&state, context.app_id.0, context.user_id.0).await?;
+    ensure_group_actor_available(&state, context).await?;
+    ensure_group_visible(&state, context.app_id.0, group_id).await?;
 
     let mut transaction = state.pool.begin().await?;
     let actor_role = lock_actor_role(
@@ -402,7 +406,8 @@ pub async fn leave_group(
 ) -> Result<StatusCode, ApiError> {
     state.features.require(Feature::Groups)?;
     let context = RequestContext::from_headers(&headers)?;
-    ensure_group_actor_available(&state, context.app_id.0, context.user_id.0).await?;
+    ensure_group_actor_available(&state, context).await?;
+    ensure_group_visible(&state, context.app_id.0, group_id).await?;
 
     let mut transaction = state.pool.begin().await?;
     let actor_role = lock_actor_role(
@@ -448,7 +453,8 @@ pub async fn ensure_group_chat(
     state.features.require(Feature::Groups)?;
     state.features.require(Feature::Chat)?;
     let context = RequestContext::from_headers(&headers)?;
-    ensure_group_actor_available(&state, context.app_id.0, context.user_id.0).await?;
+    ensure_group_actor_available(&state, context).await?;
+    ensure_group_visible(&state, context.app_id.0, group_id).await?;
 
     let mut transaction = state.pool.begin().await?;
     let actor_role = lock_actor_role(
