@@ -23,7 +23,19 @@
 
 Group-local roles are not platform moderation roles. A group owner/admin can manage that group's membership; this does not grant access to moderation queues, account restrictions, or audit APIs.
 
-When moderation is enabled, suspended or banned accounts cannot mutate groups and unavailable accounts cannot be added. Finer-grained group restrictions are intentionally deferred until group policy needs more granularity than account state; group policy does not piggyback on the chat restriction scope.
+## Moderation composition
+
+Platform moderation and group-local authority are separate planes with explicit precedence:
+
+- `group` is a normal moderation target alongside posts, conversations, and messages. Current members can report an active group; outsiders cannot use reporting as a group-existence oracle.
+- A moderator with content authority can review, hide, remove, and restore a group through the generic moderation APIs. Hidden or removed groups disappear from ordinary group reads/lists and reject ordinary group mutations.
+- Group content state does not silently change the linked conversation's moderation state. Groups own membership; chat owns communication. If a product needs both a group and its linked conversation hidden, those are two explicit moderation decisions.
+- The independent `group` user-restriction scope blocks group creation and management without also blocking ordinary chat. It is not an alias for the `chat` restriction.
+- Voluntary leave remains available even when the caller is group-restricted or the group itself is hidden/removed. Restriction and enforcement must not trap someone in a social relationship.
+- A trusted moderator with `users.restrict` may force-remove a non-owner member. The mutation uses the same membership-history and linked-chat synchronization path as ordinary group changes and emits a privileged moderation audit event.
+- The owner cannot be force-removed because doing so would violate the single-owner invariant. Transfer ownership or moderate the group itself instead.
+
+Suspended or banned accounts remain blocked from ordinary group mutations, and unavailable accounts cannot be newly added.
 
 ## Voice and command integration
 
