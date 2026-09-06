@@ -7,3 +7,4 @@ pub use mutations::{
     update_group,
 };
 pub use queries::{get_group, list_groups};
+pub(crate) use support::remove_non_owner_member;
