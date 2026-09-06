@@ -50,8 +50,7 @@ async fn groups_keep_membership_roles_and_chat_in_sync() {
     .await;
     assert_eq!(response.status(), StatusCode::OK);
     let group = json_body(response).await;
-    let group_id =
-        Uuid::parse_str(group["id"].as_str().expect("group id")).expect("UUID group id");
+    let group_id = Uuid::parse_str(group["id"].as_str().expect("group id")).expect("UUID group id");
     assert_eq!(group["name"], "Project Team");
     assert_eq!(group["chatConversationId"], Value::Null);
     assert_eq!(group["members"].as_array().expect("members").len(), 2);
@@ -141,12 +140,9 @@ async fn groups_keep_membership_roles_and_chat_in_sync() {
     .await;
     assert_eq!(response.status(), StatusCode::OK);
     let conversation = json_body(response).await;
-    let conversation_id = Uuid::parse_str(
-        conversation["id"]
-            .as_str()
-            .expect("group conversation id"),
-    )
-    .expect("UUID conversation id");
+    let conversation_id =
+        Uuid::parse_str(conversation["id"].as_str().expect("group conversation id"))
+            .expect("UUID conversation id");
     assert_eq!(
         conversation["memberIds"]
             .as_array()
