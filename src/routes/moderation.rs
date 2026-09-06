@@ -525,14 +525,12 @@ pub async fn force_remove_group_member(
     .await?;
     let correlation = correlation_id(&headers)?;
     let mut transaction = state.pool.begin().await?;
-    sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM groups WHERE app_id = $1 AND id = $2 FOR UPDATE",
-    )
-    .bind(actor.context.app_id.0)
-    .bind(group_id)
-    .fetch_optional(&mut *transaction)
-    .await?
-    .ok_or(ApiError::NotFound("moderation target"))?;
+    sqlx::query_scalar::<_, Uuid>("SELECT id FROM groups WHERE app_id = $1 AND id = $2 FOR UPDATE")
+        .bind(actor.context.app_id.0)
+        .bind(group_id)
+        .fetch_optional(&mut *transaction)
+        .await?
+        .ok_or(ApiError::NotFound("moderation target"))?;
 
     let removed_role = remove_non_owner_member(
         &mut transaction,
