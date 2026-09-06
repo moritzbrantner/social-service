@@ -68,6 +68,15 @@ export function createTrustedModerationClient(options: TrustedModerationClientOp
         method: "PUT",
         body: JSON.stringify(input),
       }),
+    removeGroupMember: (
+      groupId: Id,
+      userId: Id,
+      input: { reason?: string | null; caseId?: Id | null } = {},
+    ) =>
+      request<void>(`/v1/moderation/groups/${groupId}/members/${userId}/remove`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
     user: (userId: Id) => request<UserModeration>(`/v1/moderation/users/${userId}`),
     setAccountState: (
       userId: Id,
