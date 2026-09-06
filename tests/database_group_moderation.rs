@@ -26,8 +26,7 @@ async fn group_moderation_composes_with_local_roles_and_chat() {
 
     let state = AppState::new(
         pool,
-        FeatureSet::from_csv("groups,chat,moderation")
-            .expect("test capabilities should resolve"),
+        FeatureSet::from_csv("groups,chat,moderation").expect("test capabilities should resolve"),
     );
     let app_id = Uuid::new_v4();
     let other_app_id = Uuid::new_v4();
@@ -66,9 +65,8 @@ async fn group_moderation_composes_with_local_roles_and_chat() {
     .await;
     assert_eq!(response.status(), StatusCode::OK);
     let conversation = json_body(response).await;
-    let conversation_id =
-        Uuid::parse_str(conversation["id"].as_str().expect("conversation id"))
-            .expect("UUID conversation id");
+    let conversation_id = Uuid::parse_str(conversation["id"].as_str().expect("conversation id"))
+        .expect("UUID conversation id");
 
     let response = send(
         &state,
@@ -132,8 +130,8 @@ async fn group_moderation_composes_with_local_roles_and_chat() {
     let second_report = json_body(second_report).await;
     assert_eq!(first_report["id"], second_report["id"]);
     assert_eq!(first_report["caseId"], second_report["caseId"]);
-    let case_id = Uuid::parse_str(first_report["caseId"].as_str().expect("case id"))
-        .expect("UUID case id");
+    let case_id =
+        Uuid::parse_str(first_report["caseId"].as_str().expect("case id")).expect("UUID case id");
 
     let response = send(
         &state,
@@ -189,7 +187,13 @@ async fn group_moderation_composes_with_local_roles_and_chat() {
     )
     .await;
     assert_eq!(response.status(), StatusCode::OK);
-    assert!(json_body(response).await.as_array().expect("groups").is_empty());
+    assert!(
+        json_body(response)
+            .await
+            .as_array()
+            .expect("groups")
+            .is_empty()
+    );
 
     let response = send(
         &state,
