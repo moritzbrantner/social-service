@@ -80,8 +80,7 @@ pub async fn create_group(
             user_id,
             "joined",
             context.user_id.0,
-            None,
-            Some(role),
+            (None, Some(role)),
         )
         .await?;
     }
@@ -160,13 +159,8 @@ pub async fn add_member(
     if !actor_role.can_manage_members() {
         return Err(ApiError::Forbidden);
     }
-    ensure_members_available_in_transaction(
-        &state,
-        &mut transaction,
-        context.app_id.0,
-        &[user_id],
-    )
-    .await?;
+    ensure_members_available_in_transaction(&state, &mut transaction, context.app_id.0, &[user_id])
+        .await?;
 
     let exists = sqlx::query_scalar::<_, bool>(
         "SELECT EXISTS(SELECT 1 FROM group_members WHERE app_id = $1 AND group_id = $2 AND user_id = $3)",
@@ -205,8 +199,7 @@ pub async fn add_member(
             user_id,
             "joined",
             context.user_id.0,
-            None,
-            Some(GroupRole::Member),
+            (None, Some(GroupRole::Member)),
         )
         .await?;
         sync_linked_chat(&mut transaction, context.app_id.0, group_id).await?;
@@ -268,18 +261,15 @@ pub async fn remove_member(
         user_id,
         "left",
         context.user_id.0,
-        Some(target_role),
-        None,
+        (Some(target_role), None),
     )
     .await?;
-    sqlx::query(
-        "DELETE FROM group_members WHERE app_id = $1 AND group_id = $2 AND user_id = $3",
-    )
-    .bind(context.app_id.0)
-    .bind(group_id)
-    .bind(user_id)
-    .execute(&mut *transaction)
-    .await?;
+    sqlx::query("DELETE FROM group_members WHERE app_id = $1 AND group_id = $2 AND user_id = $3")
+        .bind(context.app_id.0)
+        .bind(group_id)
+        .bind(user_id)
+        .execute(&mut *transaction)
+        .await?;
     sync_linked_chat(&mut transaction, context.app_id.0, group_id).await?;
     touch_group(&mut transaction, context.app_id.0, group_id).await?;
     transaction.commit().await?;
@@ -358,8 +348,7 @@ pub async fn set_member_role(
             context.user_id.0,
             "role_changed",
             context.user_id.0,
-            Some(GroupRole::Owner),
-            Some(GroupRole::Admin),
+            (Some(GroupRole::Owner), Some(GroupRole::Admin)),
         )
         .await?;
         append_membership_event(
@@ -369,8 +358,7 @@ pub async fn set_member_role(
             user_id,
             "role_changed",
             context.user_id.0,
-            Some(target_role),
-            Some(GroupRole::Owner),
+            (Some(target_role), Some(GroupRole::Owner)),
         )
         .await?;
     } else {
@@ -395,8 +383,7 @@ pub async fn set_member_role(
             user_id,
             "role_changed",
             context.user_id.0,
-            Some(target_role),
-            Some(input.role),
+            (Some(target_role), Some(input.role)),
         )
         .await?;
     }
@@ -438,18 +425,15 @@ pub async fn leave_group(
         context.user_id.0,
         "left",
         context.user_id.0,
-        Some(actor_role),
-        None,
+        (Some(actor_role), None),
     )
     .await?;
-    sqlx::query(
-        "DELETE FROM group_members WHERE app_id = $1 AND group_id = $2 AND user_id = $3",
-    )
-    .bind(context.app_id.0)
-    .bind(group_id)
-    .bind(context.user_id.0)
-    .execute(&mut *transaction)
-    .await?;
+    sqlx::query("DELETE FROM group_members WHERE app_id = $1 AND group_id = $2 AND user_id = $3")
+        .bind(context.app_id.0)
+        .bind(group_id)
+        .bind(context.user_id.0)
+        .execute(&mut *transaction)
+        .await?;
     sync_linked_chat(&mut transaction, context.app_id.0, group_id).await?;
     touch_group(&mut transaction, context.app_id.0, group_id).await?;
     transaction.commit().await?;
