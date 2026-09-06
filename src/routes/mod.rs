@@ -51,10 +51,7 @@ pub fn router() -> Router<AppState> {
             put(groups::set_member_role),
         )
         .route("/groups/{group_id}/leave", post(groups::leave_group))
-        .route(
-            "/groups/{group_id}/chat",
-            post(groups::ensure_group_chat),
-        )
+        .route("/groups/{group_id}/chat", post(groups::ensure_group_chat))
         .route(
             "/conversations",
             post(chat::create_conversation).get(chat::list_conversations),
