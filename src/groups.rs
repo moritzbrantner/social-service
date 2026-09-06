@@ -13,6 +13,14 @@ pub enum GroupRole {
 }
 
 impl GroupRole {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Owner => "owner",
+            Self::Admin => "admin",
+            Self::Member => "member",
+        }
+    }
+
     pub const fn can_manage_members(self) -> bool {
         matches!(self, Self::Owner | Self::Admin)
     }

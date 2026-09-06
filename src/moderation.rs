@@ -18,6 +18,7 @@ pub enum TargetType {
     Post,
     Comment,
     Media,
+    Group,
     Conversation,
     Message,
 }
@@ -29,6 +30,7 @@ impl TargetType {
             Self::Post => "post",
             Self::Comment => "comment",
             Self::Media => "media",
+            Self::Group => "group",
             Self::Conversation => "conversation",
             Self::Message => "message",
         }
@@ -132,6 +134,7 @@ pub enum RestrictionScope {
     Post,
     Comment,
     Follow,
+    Group,
     Chat,
 }
 
@@ -143,6 +146,7 @@ impl RestrictionScope {
             Self::Post => "post",
             Self::Comment => "comment",
             Self::Follow => "follow",
+            Self::Group => "group",
             Self::Chat => "chat",
         }
     }
@@ -360,6 +364,15 @@ pub async fn target_exists(
         TargetType::Media => {
             sqlx::query_scalar::<_, bool>(
                 "SELECT EXISTS(SELECT 1 FROM media_assets WHERE app_id = $1 AND id = $2)",
+            )
+            .bind(app_id)
+            .bind(target_id)
+            .fetch_one(&state.pool)
+            .await?
+        }
+        TargetType::Group => {
+            sqlx::query_scalar::<_, bool>(
+                "SELECT EXISTS(SELECT 1 FROM groups WHERE app_id = $1 AND id = $2)",
             )
             .bind(app_id)
             .bind(target_id)

@@ -133,6 +133,7 @@ export type ModerationTargetType =
   | "post"
   | "comment"
   | "media"
+  | "group"
   | "conversation"
   | "message";
 
@@ -140,7 +141,14 @@ export type ModerationContentState = "active" | "hidden" | "removed";
 export type ModerationAccountState = "active" | "suspended" | "banned";
 export type ModerationCaseState = "open" | "investigating" | "resolved" | "dismissed";
 export type ModerationRole = "moderator" | "admin";
-export type ModerationRestrictionScope = "profile" | "media" | "post" | "comment" | "follow" | "chat";
+export type ModerationRestrictionScope =
+  | "profile"
+  | "media"
+  | "post"
+  | "comment"
+  | "follow"
+  | "group"
+  | "chat";
 export type ModerationCapability =
   | "reports.read"
   | "content.moderate"
@@ -210,5 +218,6 @@ export type ModerationTargetSnapshot =
   | { type: "post"; data: Omit<Post, "mediaIds"> }
   | { type: "comment"; data: Comment }
   | { type: "media"; data: MediaAsset }
+  | { type: "group"; data: Omit<Group, "members" | "chatConversationId"> }
   | { type: "conversation"; data: Omit<Conversation, "memberIds"> }
   | { type: "message"; data: Omit<Message, "mediaIds"> };

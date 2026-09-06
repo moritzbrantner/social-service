@@ -4,9 +4,11 @@ use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::{
+    auth::RequestContext,
     error::ApiError,
     features::Feature,
     groups::{Group, GroupMember, GroupRole, GroupRow},
+    moderation::{RestrictionScope, TargetType, ensure_content_visible, ensure_user_can},
     state::AppState,
 };
 
@@ -27,6 +29,7 @@ pub(super) async fn load_group(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound("group"))?;
+    ensure_group_visible(state, app_id, group_id).await?;
     let members = sqlx::query_as::<_, GroupMember>(
         "SELECT user_id, role, joined_at, updated_at, version FROM group_members WHERE app_id = $1 AND group_id = $2 ORDER BY joined_at ASC, user_id ASC",
     )
@@ -47,6 +50,14 @@ pub(super) async fn load_group(
         members,
         chat_conversation_id,
     })
+}
+
+pub(super) async fn ensure_group_visible(
+    state: &AppState,
+    app_id: Uuid,
+    group_id: Uuid,
+) -> Result<(), ApiError> {
+    ensure_content_visible(state, app_id, TargetType::Group, group_id, "group").await
 }
 
 pub(super) async fn lock_actor_role(
@@ -156,6 +167,52 @@ pub(super) async fn append_membership_event(
     Ok(())
 }
 
+pub(crate) async fn remove_non_owner_member(
+    transaction: &mut Transaction<'_, Postgres>,
+    app_id: Uuid,
+    group_id: Uuid,
+    user_id: Uuid,
+    actor_id: Uuid,
+) -> Result<Option<GroupRole>, ApiError> {
+    let target_role = sqlx::query_scalar::<_, GroupRole>(
+        "SELECT role FROM group_members WHERE app_id = $1 AND group_id = $2 AND user_id = $3",
+    )
+    .bind(app_id)
+    .bind(group_id)
+    .bind(user_id)
+    .fetch_optional(&mut **transaction)
+    .await?;
+    let Some(target_role) = target_role else {
+        return Ok(None);
+    };
+    if target_role == GroupRole::Owner {
+        return Err(ApiError::BadRequest(
+            "the group owner cannot be force-removed; transfer ownership or moderate the group"
+                .to_owned(),
+        ));
+    }
+
+    append_membership_event(
+        transaction,
+        app_id,
+        group_id,
+        user_id,
+        "left",
+        actor_id,
+        (Some(target_role), None),
+    )
+    .await?;
+    sqlx::query("DELETE FROM group_members WHERE app_id = $1 AND group_id = $2 AND user_id = $3")
+        .bind(app_id)
+        .bind(group_id)
+        .bind(user_id)
+        .execute(&mut **transaction)
+        .await?;
+    sync_linked_chat(transaction, app_id, group_id).await?;
+    touch_group(transaction, app_id, group_id).await?;
+    Ok(Some(target_role))
+}
+
 pub(super) async fn touch_group(
     transaction: &mut Transaction<'_, Postgres>,
     app_id: Uuid,
@@ -199,24 +256,9 @@ pub(super) async fn validate_avatar(
 
 pub(super) async fn ensure_group_actor_available(
     state: &AppState,
-    app_id: Uuid,
-    user_id: Uuid,
+    context: RequestContext,
 ) -> Result<(), ApiError> {
-    if !state.features.is_enabled(Feature::Moderation) {
-        return Ok(());
-    }
-    let unavailable = sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS(SELECT 1 FROM moderation_account_states WHERE app_id = $1 AND user_id = $2 AND state IN ('suspended', 'banned'))",
-    )
-    .bind(app_id)
-    .bind(user_id)
-    .fetch_one(&state.pool)
-    .await?;
-    if unavailable {
-        Err(ApiError::Forbidden)
-    } else {
-        Ok(())
-    }
+    ensure_user_can(state, context, RestrictionScope::Group).await
 }
 
 pub(super) async fn ensure_members_available(

@@ -20,10 +20,11 @@ pub async fn list_groups(
     state.features.require(Feature::Groups)?;
     let context = RequestContext::from_headers(&headers)?;
     let group_ids = sqlx::query_scalar::<_, Uuid>(
-        "SELECT g.id FROM groups g JOIN group_members gm ON gm.app_id = g.app_id AND gm.group_id = g.id WHERE g.app_id = $1 AND gm.user_id = $2 ORDER BY g.updated_at DESC, g.id ASC LIMIT $3",
+        "SELECT g.id FROM groups g JOIN group_members gm ON gm.app_id = g.app_id AND gm.group_id = g.id WHERE g.app_id = $1 AND gm.user_id = $2 AND ($3 = FALSE OR NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = g.app_id AND mcs.target_type = 'group' AND mcs.target_id = g.id AND mcs.state <> 'active')) ORDER BY g.updated_at DESC, g.id ASC LIMIT $4",
     )
     .bind(context.app_id.0)
     .bind(context.user_id.0)
+    .bind(state.features.is_enabled(Feature::Moderation))
     .bind(query.limit())
     .fetch_all(&state.pool)
     .await?;

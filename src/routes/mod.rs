@@ -72,6 +72,10 @@ pub fn router() -> Router<AppState> {
             get(moderation::review_target).put(moderation::set_content_state),
         )
         .route(
+            "/moderation/groups/{group_id}/members/{user_id}/remove",
+            post(moderation::force_remove_group_member),
+        )
+        .route(
             "/moderation/users/{user_id}",
             get(moderation::get_user_moderation).put(moderation::set_account_state),
         )

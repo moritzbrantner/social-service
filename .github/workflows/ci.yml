@@ -49,6 +49,7 @@ jobs:
       - run: cargo test --locked --test database_visibility -- --ignored --nocapture
       - run: cargo test --locked --test database_moderation -- --ignored --nocapture
       - run: cargo test --locked --test database_groups -- --ignored --nocapture
+      - run: cargo test --locked --test database_group_moderation -- --ignored --nocapture
 
   typescript:
     runs-on: ubuntu-24.04
