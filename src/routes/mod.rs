@@ -4,6 +4,7 @@ mod media;
 mod moderation;
 mod posts;
 mod profiles;
+mod saves;
 
 use axum::{
     Json, Router,
@@ -27,6 +28,11 @@ pub fn router() -> Router<AppState> {
             "/posts/{post_id}/comments",
             get(posts::list_comments).post(posts::create_comment),
         )
+        .route(
+            "/posts/{post_id}/save",
+            put(saves::save_post).delete(saves::unsave_post),
+        )
+        .route("/saved-posts", get(saves::list_saved_posts))
         .route(
             "/follows/{user_id}",
             put(posts::follow_user).delete(posts::unfollow_user),
@@ -59,6 +65,14 @@ pub fn router() -> Router<AppState> {
         .route(
             "/conversations/{conversation_id}/messages",
             get(chat::list_messages).post(chat::create_message),
+        )
+        .route(
+            "/conversations/{conversation_id}/pins",
+            get(chat::list_pinned_messages),
+        )
+        .route(
+            "/conversations/{conversation_id}/pins/{message_id}",
+            put(chat::pin_message).delete(chat::unpin_message),
         )
         .route("/reports", post(moderation::create_report))
         .route("/moderation/me", get(moderation::me))

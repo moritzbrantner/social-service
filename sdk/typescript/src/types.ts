@@ -34,6 +34,10 @@ export type Post = {
   mediaIds: Id[];
 };
 
+export type SavedPost = Post & {
+  savedAt: string;
+};
+
 export type Comment = {
   id: Id;
   postId: Id;
@@ -110,12 +114,18 @@ export type Message = {
   mediaIds: Id[];
 };
 
+export type PinnedMessage = Message & {
+  pinnedBy: Id;
+  pinnedAt: string;
+};
+
 export type Feature =
   | "profiles"
   | "media"
   | "posts"
   | "comments"
   | "follows"
+  | "saves"
   | "groups"
   | "chat"
   | "moderation";

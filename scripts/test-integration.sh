@@ -14,3 +14,4 @@ cargo test --locked --test database_visibility -- --ignored --nocapture
 cargo test --locked --test database_moderation -- --ignored --nocapture
 cargo test --locked --test database_groups -- --ignored --nocapture
 cargo test --locked --test database_group_moderation -- --ignored --nocapture
+cargo test --locked --test database_saved_and_pinned_content -- --ignored --nocapture

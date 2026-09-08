@@ -31,8 +31,10 @@ export type {
   ModerationRole,
   ModerationTargetSnapshot,
   ModerationTargetType,
+  PinnedMessage,
   Post,
   Profile,
+  SavedPost,
   UserModeration,
   Visibility,
 } from "./types";

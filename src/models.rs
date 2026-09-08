@@ -66,6 +66,14 @@ pub struct Post {
     pub media_ids: Vec<Uuid>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedPost {
+    #[serde(flatten)]
+    pub post: Post,
+    pub saved_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreatePost {
@@ -141,6 +149,15 @@ pub struct Message {
     #[serde(flatten)]
     pub row: MessageRow,
     pub media_ids: Vec<Uuid>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PinnedMessage {
+    #[serde(flatten)]
+    pub message: Message,
+    pub pinned_by: Uuid,
+    pub pinned_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize)]
