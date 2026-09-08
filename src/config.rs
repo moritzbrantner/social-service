@@ -19,10 +19,9 @@ impl Config {
             .unwrap_or_else(|_| "127.0.0.1:8080".to_owned())
             .parse()
             .map_err(ConfigError::InvalidBind)?;
-        let features =
-            FeatureSet::from_csv(&env::var("SOCIAL_FEATURES").unwrap_or_else(|_| {
-                "profiles,media,posts,comments,follows,saves,groups,chat".to_owned()
-            }))?;
+        let features = FeatureSet::from_csv(&env::var("SOCIAL_FEATURES").unwrap_or_else(|_| {
+            "profiles,media,posts,comments,follows,saves,groups,chat".to_owned()
+        }))?;
 
         Ok(Self {
             database_url,
