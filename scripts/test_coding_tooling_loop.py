@@ -65,6 +65,7 @@ class CodingToolingLoopTests(unittest.TestCase):
         )
 
     def test_protected_control_changes_require_candidate_evidence(self):
+        self.assertIn("scripts/coding_tooling_loop.py", loop.PROTECTED_PATHS)
         before = {path: "before" for path in loop.PROTECTED_PATHS}
         after = dict(before)
         after[".coding-tooling.json"] = "after"
@@ -81,6 +82,26 @@ class CodingToolingLoopTests(unittest.TestCase):
             ),
             [],
         )
+
+    def test_worktree_fingerprint_tracks_untracked_content_changes(self):
+        successful = lambda command, stdout="": subprocess.CompletedProcess(command, 0, stdout, "")
+        responses = [
+            successful(["git", "diff"]),
+            successful(["git", "status"], "?? candidate.rs\n"),
+            successful(["git", "ls-files"], "candidate.rs\0"),
+            successful(["git", "diff"]),
+            successful(["git", "status"], "?? candidate.rs\n"),
+            successful(["git", "ls-files"], "candidate.rs\0"),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "candidate.rs"
+            path.write_text("first", encoding="utf-8")
+            with patch.object(loop, "run", side_effect=responses):
+                before = loop.worktree_fingerprint(root)
+                path.write_text("second", encoding="utf-8")
+                after = loop.worktree_fingerprint(root)
+        self.assertNotEqual(before, after)
 
     def test_candidate_verification_stops_on_first_failure(self):
         candidate = {"verification": [["first"], ["second"]]}
@@ -153,6 +174,45 @@ class CodingToolingLoopTests(unittest.TestCase):
             )
 
         agent.assert_not_called()
+
+    def test_partial_scaffold_escalates_to_agent_only_after_first_attempt(self):
+        candidate = {
+            "id": "CT-PARTIAL",
+            "kind": "implementation",
+            "scaffolds": [{"command": ["coding-tooling", "scaffold", "CT-1"]}],
+            "verification": [],
+        }
+        first_failure = [Path("verification-1.log")]
+        with tempfile.TemporaryDirectory() as directory, patch.object(
+            loop,
+            "git_identity",
+            side_effect=[
+                ("branch", "head"),
+                ("branch", "head"),
+                ("branch", "head"),
+                ("branch", "head"),
+            ],
+        ), patch.object(
+            loop, "worktree_fingerprint", side_effect=["before", "scaffolded", "scaffolded", "fixed"]
+        ), patch.object(loop, "control_hashes", return_value={}), patch.object(
+            loop, "apply_scaffolds", return_value=(True, None)
+        ) as scaffolds, patch.object(
+            loop, "invoke_agent", return_value=None
+        ) as agent, patch.object(
+            loop, "run_candidate_verification", side_effect=[first_failure, []]
+        ), patch.object(loop, "run_tier", return_value=[]):
+            loop.repair_candidate(
+                Path(directory),
+                ["coding-tooling"],
+                ["codex", "exec", "{prompt}"],
+                candidate,
+                artifact_dir=Path(directory) / "artifacts",
+                max_repairs=2,
+            )
+
+        self.assertEqual(scaffolds.call_count, 1)
+        self.assertEqual(agent.call_count, 1)
+        self.assertEqual(agent.call_args.kwargs["attempt"], 2)
 
     def test_loop_bounds_reject_runaway_values(self):
         self.assertEqual(loop.bounded_count(3, name="repairs", maximum=5), 3)
