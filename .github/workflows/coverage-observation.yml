@@ -1,0 +1,155 @@
+name: Coverage Observation
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coverage-observation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.11-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+        env:
+          POSTGRES_DB: social
+          POSTGRES_USER: social
+          POSTGRES_PASSWORD: social
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U social -d social"
+          --health-interval 2s
+          --health-timeout 2s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgres://social:social@localhost:5432/social
+
+    steps:
+      - name: Checkout social-service
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: llvm-tools-preview
+
+      - name: Restore Rust cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@9e57365e36de1e26dea5145e57d471261468d9f7
+        with:
+          tool: cargo-llvm-cov@0.9.0
+
+      - name: Measure Rust test coverage
+        run: |
+          mkdir -p coverage
+          cargo llvm-cov --locked --all-features --lcov --output-path coverage/rust.lcov -- --test-threads=1
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+          cache-dependency-path: sdk/typescript/package-lock.json
+
+      - name: Install TypeScript SDK dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: sdk/typescript
+
+      - name: Measure TypeScript SDK test coverage
+        run: |
+          mkdir -p coverage
+          node --test \
+            --experimental-test-coverage \
+            --test-coverage-include='src/**/*.ts' \
+            --test-reporter=lcov \
+            --test-reporter-destination=coverage/lcov.info \
+            tests/*.test.mjs
+        working-directory: sdk/typescript
+
+      - name: Combine native LCOV evidence
+        run: cat coverage/rust.lcov sdk/typescript/coverage/lcov.info > coverage/lcov.info
+
+      - name: Checkout pinned coding-tooling snapshot producer
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: moritzbrantner/coding-tooling
+          ref: 413e7ddc499d5f2a23299ac0ac06a563ad4f7e7d
+          path: .tools/coding-tooling
+          persist-credentials: false
+
+      - name: Build normalized coverage observation
+        run: >-
+          node .tools/coding-tooling/scripts/build-test-coverage-snapshot.js
+          --input coverage/lcov.info
+          --format lcov
+          --repository "$GITHUB_REPOSITORY"
+          --revision "$GITHUB_SHA"
+          --generated-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          --output coverage/test-coverage.json
+
+      - name: Upload normalized coverage evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: analysis-coverage-${{ github.sha }}
+          path: |
+            coverage/test-coverage.json
+            coverage/lcov.info
+          if-no-files-found: error
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: measure
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download normalized coverage evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: analysis-coverage-${{ github.sha }}
+          path: ${{ runner.temp }}/coverage-observation
+
+      - name: Checkout social-service for publication
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Publish coding-tooling coverage observation
+        env:
+          COVERAGE_SNAPSHOT_PATH: ${{ runner.temp }}/coverage-observation/test-coverage.json
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code --heads origin coding-tooling-observations >/dev/null 2>&1; then
+            git fetch --depth=1 origin coding-tooling-observations
+            git switch -C coding-tooling-observations FETCH_HEAD
+          else
+            git switch --orphan coding-tooling-observations
+            git rm -rf . >/dev/null 2>&1 || true
+          fi
+
+          mkdir -p .coding-tooling
+          cp "$COVERAGE_SNAPSHOT_PATH" .coding-tooling/test-coverage.json
+          git add .coding-tooling/test-coverage.json
+          git commit -m "Publish coding-tooling coverage for ${GITHUB_SHA}"
+          git push origin HEAD:coding-tooling-observations
