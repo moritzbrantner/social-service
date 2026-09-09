@@ -54,10 +54,23 @@ jobs:
         with:
           tool: cargo-llvm-cov@0.9.0
 
-      - name: Measure Rust test coverage
+      - name: Measure complete Rust test coverage
         run: |
+          set -euo pipefail
           mkdir -p coverage
-          cargo llvm-cov --locked --all-features --lcov --output-path coverage/rust.lcov -- --test-threads=1
+          cargo llvm-cov clean --workspace
+          cargo llvm-cov --locked --all-features --no-report -- --test-threads=1
+          for test_name in \
+            database_visibility \
+            database_moderation \
+            database_groups \
+            database_group_moderation \
+            database_saved_and_pinned_content
+          do
+            cargo llvm-cov --locked --all-features --no-clean --no-report \
+              --test "$test_name" -- --ignored --nocapture
+          done
+          cargo llvm-cov report --lcov --output-path coverage/rust.lcov
 
       - name: Set up Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
