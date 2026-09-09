@@ -84,6 +84,8 @@ jobs:
           cache-dependency-path: sdk/typescript/package-lock.json
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: sdk/typescript
+      - name: Test coding-tooling improvement loop
+        run: python3 -m unittest scripts/test_coding_tooling_loop.py
       - name: Check convention conformance
         uses: moritzbrantner/coding-tooling@28307c66f40e6f02012ed06cc6a632b8b4b15434
         with:

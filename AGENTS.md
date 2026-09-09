@@ -2,6 +2,14 @@
 
 Follow the committed `.conventions/` snapshot selected by `conventions.json` and locked by `conventions.lock.json`. Refresh that snapshot through `coding-tooling`; do not silently substitute live convention content during ordinary repository work.
 
+## Coding-tooling improvement loop
+
+Use `python3 scripts/coding_tooling_loop.py` for bounded repository-local remediation driven by `coding-tooling remediation plan --json`. The loop takes the highest-priority candidate one at a time, prefers candidate-declared deterministic scaffolds, and delegates only genuine implementation candidates to a non-interactive agent command. Set `CODING_TOOLING_LOOP_AGENT_COMMAND` or pass `--agent-command`; if Codex is installed, the loop can use its non-interactive `exec` mode.
+
+The loop requires a clean starting worktree, preserves branch/HEAD identity, records evidence under `.artifacts/coding-tooling/loop`, runs candidate-specific verification, and then runs the strict `fast` tier after every repair. When remediation converges it runs the existing strict `full` tier, including the repository's Docker/Postgres integration surface. Defaults are five candidates and three repairs per candidate; hard caps prevent an unbounded run. `--include-baseline` is an explicit opt-in for historical baselined debt.
+
+The loop owns working-tree remediation only. It must not commit, push, merge, switch branches, publish, tag, suppress/baseline findings, weaken validation, or change repository governance. `.coding-tooling.json`, `.github/workflows/ci.yml`, `scripts/coding_tooling_loop.py`, and `scripts/test-integration.sh` are protected unless the selected coding-tooling candidate itself names the file as related evidence. Review-only candidates stop for explicit review rather than granting mutation authority.
+
 Repository-specific decisions:
 
 - Keep this a modular monolith and one deployable social service. Do not split capabilities into microservices without an explicit architectural decision.
