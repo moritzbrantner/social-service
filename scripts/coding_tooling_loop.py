@@ -21,6 +21,7 @@ MAX_REPAIRS = 5
 PROTECTED_PATHS = (
     ".coding-tooling.json",
     ".github/workflows/ci.yml",
+    "scripts/coding_tooling_loop.py",
     "scripts/test-integration.sh",
 )
 
@@ -153,12 +154,20 @@ def require_clean_start(root: Path) -> None:
 def worktree_fingerprint(root: Path) -> str:
     diff = run(["git", "diff", "--binary", "HEAD"], cwd=root)
     status = run(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=root)
-    if diff.returncode != 0 or status.returncode != 0:
+    untracked = run(["git", "ls-files", "--others", "--exclude-standard", "-z"], cwd=root)
+    if diff.returncode != 0 or status.returncode != 0 or untracked.returncode != 0:
         raise LoopError("unable to fingerprint the working tree")
+
     digest = hashlib.sha256()
     digest.update(diff.stdout.encode())
     digest.update(b"\0")
     digest.update(status.stdout.encode())
+    for relative in filter(None, untracked.stdout.split("\0")):
+        path = root / relative
+        if path.is_file():
+            digest.update(relative.encode())
+            digest.update(b"\0")
+            digest.update(hashlib.sha256(path.read_bytes()).digest())
     return digest.hexdigest()
 
 
@@ -342,7 +351,8 @@ def repair_candidate(
     max_repairs: int,
 ) -> None:
     candidate_id = str(candidate.get("id") or "candidate")
-    if candidate.get("kind") == "review":
+    kind = candidate.get("kind")
+    if kind == "review":
         raise LoopError(f"{candidate_id} requires explicit review; automatic mutation is not authorized")
 
     candidate_dir = artifact_dir / candidate_id
@@ -354,12 +364,17 @@ def repair_candidate(
         fingerprint_before = worktree_fingerprint(root)
         controls_before = control_hashes(root)
 
-        scaffolded, mutation_failure = apply_scaffolds(
-            root, tooling, candidate, artifact_dir=candidate_dir
-        )
+        scaffolded = False
+        mutation_failure: Path | None = None
+        if attempt == 1:
+            scaffolded, mutation_failure = apply_scaffolds(
+                root, tooling, candidate, artifact_dir=candidate_dir
+            )
+
         if not scaffolded:
-            if candidate.get("kind") == "deterministic-scaffold":
-                raise LoopError(f"{candidate_id} declares deterministic scaffolding but none is available")
+            if kind == "deterministic-scaffold":
+                reason = "no scaffold is available" if attempt == 1 else "the deterministic scaffold did not converge"
+                raise LoopError(f"{candidate_id} cannot continue automatically: {reason}")
             if agent_command is None:
                 raise LoopError(f"{candidate_id} requires an agent but no agent command is available")
             mutation_failure = invoke_agent(
