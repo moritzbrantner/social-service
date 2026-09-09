@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "kind": "coding-tooling-test-coverage-snapshot",
+  "repository": {
+    "fullName": "moritzbrantner/social-service",
+    "revision": "894fd078a79cfec9547e31dfaf53829da492f812"
+  },
+  "generatedAt": "2026-09-09T15:42:19.000Z",
+  "producer": {
+    "id": "coding-tooling",
+    "protocolVersion": 1
+  },
+  "source": {
+    "path": "coverage/lcov.info",
+    "format": "lcov"
+  },
+  "coverage": {
+    "lines": {
+      "covered": 740,
+      "total": 3484,
+      "percent": 21.24
+    },
+    "statements": null,
+    "functions": {
+      "covered": 103,
+      "total": 301,
+      "percent": 34.22
+    },
+    "branches": {
+      "covered": 9,
+      "total": 10,
+      "percent": 90
+    }
+  }
+}
