@@ -8,7 +8,7 @@ Use `python3 scripts/coding_tooling_loop.py` for bounded repository-local remedi
 
 The loop requires a clean starting worktree, preserves branch/HEAD identity, records evidence under `.artifacts/coding-tooling/loop`, runs candidate-specific verification, and then runs the strict `fast` tier after every repair. When remediation converges it runs the existing strict `full` tier, including the repository's Docker/Postgres integration surface. Defaults are five candidates and three repairs per candidate; hard caps prevent an unbounded run. `--include-baseline` is an explicit opt-in for historical baselined debt.
 
-The loop owns working-tree remediation only. It must not commit, push, merge, switch branches, publish, tag, suppress/baseline findings, weaken validation, or change repository governance. `.coding-tooling.json`, `.github/workflows/ci.yml`, and `scripts/test-integration.sh` are protected unless the selected coding-tooling candidate itself names the file as related evidence. Review-only candidates stop for explicit review rather than granting mutation authority.
+The loop owns working-tree remediation only. It must not commit, push, merge, switch branches, publish, tag, suppress/baseline findings, weaken validation, or change repository governance. `.coding-tooling.json`, `.github/workflows/ci.yml`, `scripts/coding_tooling_loop.py`, and `scripts/test-integration.sh` are protected unless the selected coding-tooling candidate itself names the file as related evidence. Review-only candidates stop for explicit review rather than granting mutation authority.
 
 Repository-specific decisions:
 
