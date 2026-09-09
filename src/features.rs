@@ -13,18 +13,20 @@ pub enum Feature {
     Posts,
     Comments,
     Follows,
+    Saves,
     Groups,
     Chat,
     Moderation,
 }
 
 impl Feature {
-    pub const ALL: [Self; 8] = [
+    pub const ALL: [Self; 9] = [
         Self::Profiles,
         Self::Media,
         Self::Posts,
         Self::Comments,
         Self::Follows,
+        Self::Saves,
         Self::Groups,
         Self::Chat,
         Self::Moderation,
@@ -37,6 +39,7 @@ impl Feature {
             "posts" => Some(Self::Posts),
             "comments" => Some(Self::Comments),
             "follows" => Some(Self::Follows),
+            "saves" => Some(Self::Saves),
             "groups" => Some(Self::Groups),
             "chat" => Some(Self::Chat),
             "moderation" => Some(Self::Moderation),
@@ -53,7 +56,7 @@ impl Feature {
             | Self::Groups
             | Self::Chat
             | Self::Moderation => &[Self::Profiles],
-            Self::Comments => &[Self::Posts],
+            Self::Comments | Self::Saves => &[Self::Posts],
         }
     }
 
@@ -66,10 +69,11 @@ impl Feature {
                 Self::Posts,
                 Self::Comments,
                 Self::Follows,
+                Self::Saves,
                 Self::Groups,
                 Self::Chat,
             ],
-            Self::Media | Self::Comments | Self::Follows => &[],
+            Self::Media | Self::Comments | Self::Follows | Self::Saves => &[],
         }
     }
 
@@ -86,6 +90,7 @@ impl fmt::Display for Feature {
             Self::Posts => "posts",
             Self::Comments => "comments",
             Self::Follows => "follows",
+            Self::Saves => "saves",
             Self::Groups => "groups",
             Self::Chat => "chat",
             Self::Moderation => "moderation",
@@ -258,6 +263,16 @@ mod tests {
         assert_eq!(
             features.effective(),
             vec![Feature::Profiles, Feature::Posts, Feature::Comments]
+        );
+    }
+
+    #[test]
+    fn saves_resolve_posts_and_profiles() {
+        let features = FeatureSet::from_csv("saves").expect("saves should resolve");
+        assert_eq!(features.app_requested(), vec![Feature::Saves]);
+        assert_eq!(
+            features.effective(),
+            vec![Feature::Profiles, Feature::Posts, Feature::Saves]
         );
     }
 

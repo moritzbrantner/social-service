@@ -3,8 +3,10 @@ use std::collections::HashSet;
 use axum::{
     Json,
     extract::{Path, Query, State},
-    http::HeaderMap,
+    http::{HeaderMap, StatusCode},
 };
+use chrono::{DateTime, Utc};
+use sqlx::FromRow;
 use uuid::Uuid;
 
 use crate::{
@@ -13,12 +15,28 @@ use crate::{
     features::Feature,
     models::{
         Conversation, ConversationRow, CreateConversation, CreateMessage, LimitQuery, Message,
-        MessageRow,
+        MessageRow, PinnedMessage,
     },
-    moderation::{RestrictionScope, TargetType, ensure_content_visible, ensure_user_can},
+    moderation::{
+        RestrictionScope, TargetType, ensure_account_visible, ensure_content_visible,
+        ensure_user_can,
+    },
     routes::posts::{attach_media, load_media_ids},
     state::AppState,
 };
+
+#[derive(FromRow)]
+struct PinnedMessageRecord {
+    id: Uuid,
+    conversation_id: Uuid,
+    author_id: Uuid,
+    body: Option<String>,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
+    version: i64,
+    pinned_by: Uuid,
+    pinned_at: DateTime<Utc>,
+}
 
 pub async fn create_conversation(
     State(state): State<AppState>,
@@ -232,6 +250,145 @@ pub async fn list_messages(
         messages.push(Message { row, media_ids });
     }
     Ok(Json(messages))
+}
+
+pub async fn pin_message(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((conversation_id, message_id)): Path<(Uuid, Uuid)>,
+) -> Result<StatusCode, ApiError> {
+    state.features.require(Feature::Chat)?;
+    let context = RequestContext::from_headers(&headers)?;
+    ensure_user_can(&state, context, RestrictionScope::Chat).await?;
+    require_membership(&state, context.app_id.0, conversation_id, context.user_id.0).await?;
+    ensure_content_visible(
+        &state,
+        context.app_id.0,
+        TargetType::Conversation,
+        conversation_id,
+        "conversation",
+    )
+    .await?;
+
+    let author_id = sqlx::query_scalar::<_, Uuid>(
+        "SELECT author_id FROM messages WHERE app_id = $1 AND conversation_id = $2 AND id = $3",
+    )
+    .bind(context.app_id.0)
+    .bind(conversation_id)
+    .bind(message_id)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(ApiError::NotFound("message"))?;
+    ensure_account_visible(&state, context.app_id.0, author_id).await?;
+    ensure_content_visible(
+        &state,
+        context.app_id.0,
+        TargetType::Message,
+        message_id,
+        "message",
+    )
+    .await?;
+
+    sqlx::query(
+        "INSERT INTO conversation_message_pins (app_id, conversation_id, message_id, pinned_by) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
+    )
+    .bind(context.app_id.0)
+    .bind(conversation_id)
+    .bind(message_id)
+    .bind(context.user_id.0)
+    .execute(&state.pool)
+    .await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn unpin_message(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path((conversation_id, message_id)): Path<(Uuid, Uuid)>,
+) -> Result<StatusCode, ApiError> {
+    state.features.require(Feature::Chat)?;
+    let context = RequestContext::from_headers(&headers)?;
+    ensure_user_can(&state, context, RestrictionScope::Chat).await?;
+    require_membership(&state, context.app_id.0, conversation_id, context.user_id.0).await?;
+    ensure_content_visible(
+        &state,
+        context.app_id.0,
+        TargetType::Conversation,
+        conversation_id,
+        "conversation",
+    )
+    .await?;
+
+    sqlx::query(
+        "DELETE FROM conversation_message_pins WHERE app_id = $1 AND conversation_id = $2 AND message_id = $3",
+    )
+    .bind(context.app_id.0)
+    .bind(conversation_id)
+    .bind(message_id)
+    .execute(&state.pool)
+    .await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn list_pinned_messages(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(conversation_id): Path<Uuid>,
+    Query(query): Query<LimitQuery>,
+) -> Result<Json<Vec<PinnedMessage>>, ApiError> {
+    state.features.require(Feature::Chat)?;
+    let context = RequestContext::from_headers(&headers)?;
+    require_membership(&state, context.app_id.0, conversation_id, context.user_id.0).await?;
+    ensure_content_visible(
+        &state,
+        context.app_id.0,
+        TargetType::Conversation,
+        conversation_id,
+        "conversation",
+    )
+    .await?;
+
+    let rows = sqlx::query_as::<_, PinnedMessageRecord>(
+        "SELECT m.id, m.conversation_id, m.author_id, m.body, m.created_at, m.updated_at, m.version, p.pinned_by, p.pinned_at FROM conversation_message_pins p JOIN messages m ON m.app_id = p.app_id AND m.conversation_id = p.conversation_id AND m.id = p.message_id WHERE p.app_id = $1 AND p.conversation_id = $2 AND ($3 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'message' AND mcs.target_id = m.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = m.author_id AND mas.state IN ('suspended', 'banned')))) ORDER BY p.pinned_at DESC, p.message_id ASC LIMIT $4",
+    )
+    .bind(context.app_id.0)
+    .bind(conversation_id)
+    .bind(state.features.is_enabled(Feature::Moderation))
+    .bind(query.limit())
+    .fetch_all(&state.pool)
+    .await?;
+
+    let mut pinned_messages = Vec::with_capacity(rows.len());
+    for row in rows {
+        let media_ids = load_media_ids(
+            &state,
+            context.app_id.0,
+            "message_media",
+            "message_id",
+            row.id,
+        )
+        .await?;
+        pinned_messages.push(PinnedMessage {
+            message: Message {
+                row: MessageRow {
+                    id: row.id,
+                    conversation_id: row.conversation_id,
+                    author_id: row.author_id,
+                    body: row.body,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                    version: row.version,
+                },
+                media_ids,
+            },
+            pinned_by: row.pinned_by,
+            pinned_at: row.pinned_at,
+        });
+    }
+
+    Ok(Json(pinned_messages))
 }
 
 async fn load_member_ids(

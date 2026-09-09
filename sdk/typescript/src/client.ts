@@ -11,8 +11,10 @@ import type {
   Message,
   ModerationReport,
   ModerationTargetType,
+  PinnedMessage,
   Post,
   Profile,
+  SavedPost,
   Visibility,
 } from "./types";
 
@@ -107,6 +109,9 @@ export function createSocialClient(options: SocialClientOptions) {
       request<Post>("/v1/posts", { method: "POST", body: JSON.stringify(input) }),
     post: (postId: Id) => request<Post>(`/v1/posts/${postId}`),
     deletePost: (postId: Id) => request<void>(`/v1/posts/${postId}`, { method: "DELETE" }),
+    savePost: (postId: Id) => request<void>(`/v1/posts/${postId}/save`, { method: "PUT" }),
+    unsavePost: (postId: Id) => request<void>(`/v1/posts/${postId}/save`, { method: "DELETE" }),
+    savedPosts: (limit = 50) => request<SavedPost[]>(`/v1/saved-posts?limit=${limit}`),
     comments: (postId: Id, limit = 50) => request<Comment[]>(`/v1/posts/${postId}/comments?limit=${limit}`),
     createComment: (postId: Id, body: string) =>
       request<Comment>(`/v1/posts/${postId}/comments`, { method: "POST", body: JSON.stringify({ body }) }),
@@ -137,6 +142,12 @@ export function createSocialClient(options: SocialClientOptions) {
         method: "POST",
         body: JSON.stringify(input),
       }),
+    pinnedMessages: (conversationId: Id, limit = 50) =>
+      request<PinnedMessage[]>(`/v1/conversations/${conversationId}/pins?limit=${limit}`),
+    pinMessage: (conversationId: Id, messageId: Id) =>
+      request<void>(`/v1/conversations/${conversationId}/pins/${messageId}`, { method: "PUT" }),
+    unpinMessage: (conversationId: Id, messageId: Id) =>
+      request<void>(`/v1/conversations/${conversationId}/pins/${messageId}`, { method: "DELETE" }),
   };
 }
 

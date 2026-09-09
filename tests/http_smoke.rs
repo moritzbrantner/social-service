@@ -64,7 +64,7 @@ async fn feature_configuration_is_exposed_through_the_http_boundary() {
         document,
         json!({
             "enabled": ["profiles", "posts", "comments", "follows"],
-            "implemented": ["profiles", "media", "posts", "comments", "follows", "groups", "chat", "moderation"],
+            "implemented": ["profiles", "media", "posts", "comments", "follows", "saves", "groups", "chat", "moderation"],
             "deploymentSupported": ["profiles", "posts", "comments", "follows"],
             "appRequested": ["comments", "follows"],
             "effective": ["profiles", "posts", "comments", "follows"]

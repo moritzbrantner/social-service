@@ -35,7 +35,15 @@ Keep simple counts as PostgreSQL aggregates first. Denormalized counters or cach
 
 A private "star", bookmark, or saved-post action is not the same concept as a public reaction. Model it as a private per-user save/favorite relation. Other users should not infer it from reaction APIs or counts.
 
+The minimal post-save capability is implemented as `saves`. Saving and unsaving are idempotent. Saved-post reads are private to the current user, retain the time the post was saved, and reapply the post's current visibility and moderation boundaries before returning content. Removing a save does not require the post to remain visible, so a user can always clean up a stale private relation.
+
 If a product later needs a 1-5 star score, model that separately as a **rating**. Do not overload the same `star` concept for both bookmarks and numeric ratings.
+
+## Message pins
+
+Conversation message pins are shared chat state, not private favorites. The minimal implementation keeps pins inside the existing `chat` capability: current conversation members can pin or unpin a message, and current members can list the pinned messages. Pinning and unpinning are idempotent and do not reorder the conversation list.
+
+Pinned-message reads reapply message/account moderation boundaries. The database relation includes both conversation and message identity so a message cannot be pinned into a different conversation. More restrictive pin authority for particular products or linked group chats can be added later without changing message identity or turning pins into reactions.
 
 ## Votes
 
