@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -16,8 +18,6 @@ use crate::{
     state::AppState,
     visibility::Visibility,
 };
-
-use super::posts::load_media_ids;
 
 #[derive(FromRow)]
 struct SavedPostRecord {
@@ -87,12 +87,14 @@ pub async fn list_saved_posts(
     .fetch_all(&state.pool)
     .await?;
 
+    let post_ids = rows.iter().map(|row| row.id).collect::<Vec<_>>();
+    let mut media_by_post = load_saved_post_media(&state, context.app_id.0, &post_ids).await?;
+
     let mut saved_posts = Vec::with_capacity(rows.len());
     for row in rows {
-        let media_ids =
-            load_media_ids(&state, context.app_id.0, "post_media", "post_id", row.id).await?;
         saved_posts.push(SavedPost {
             post: Post {
+                media_ids: media_by_post.remove(&row.id).unwrap_or_default(),
                 row: PostRow {
                     id: row.id,
                     author_id: row.author_id,
@@ -102,13 +104,37 @@ pub async fn list_saved_posts(
                     updated_at: row.updated_at,
                     version: row.version,
                 },
-                media_ids,
             },
             saved_at: row.saved_at,
         });
     }
 
     Ok(Json(saved_posts))
+}
+
+async fn load_saved_post_media(
+    state: &AppState,
+    app_id: Uuid,
+    post_ids: &[Uuid],
+) -> Result<HashMap<Uuid, Vec<Uuid>>, ApiError> {
+    if post_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let media_rows = sqlx::query_as::<_, (Uuid, Uuid)>(
+        "SELECT relation.post_id, relation.media_id FROM post_media relation WHERE relation.app_id = $1 AND relation.post_id = ANY($2) AND ($3 = FALSE OR NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'media' AND mcs.target_id = relation.media_id AND mcs.state <> 'active')) ORDER BY relation.post_id ASC, relation.position ASC",
+    )
+    .bind(app_id)
+    .bind(post_ids)
+    .bind(state.features.is_enabled(Feature::Moderation))
+    .fetch_all(&state.pool)
+    .await?;
+
+    let mut media_by_post = HashMap::<Uuid, Vec<Uuid>>::with_capacity(post_ids.len());
+    for (post_id, media_id) in media_rows {
+        media_by_post.entry(post_id).or_default().push(media_id);
+    }
+    Ok(media_by_post)
 }
 
 async fn ensure_saveable_post(
