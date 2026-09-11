@@ -16,3 +16,5 @@ cargo test --locked --test database_moderation_signals -- --ignored --nocapture
 cargo test --locked --test database_groups -- --ignored --nocapture
 cargo test --locked --test database_group_moderation -- --ignored --nocapture
 cargo test --locked --test database_saved_and_pinned_content -- --ignored --nocapture
+cargo test --locked --test database_user_safety_relationships -- --ignored --nocapture
+cargo test --locked --test database_user_safety_regressions -- --ignored --nocapture

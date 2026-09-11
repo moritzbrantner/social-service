@@ -14,6 +14,7 @@ use crate::{
         RestrictionScope, TargetType, ensure_account_visible, ensure_content_visible,
         ensure_user_can,
     },
+    relationships::ensure_not_blocked,
     state::AppState,
 };
 
@@ -34,6 +35,7 @@ pub async fn get_profile(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound("profile"))?;
+    ensure_not_blocked(&state, app_id, viewer_id, user_id, "profile").await?;
     ensure_account_visible(&state, app_id, user_id).await?;
     ensure_content_visible(&state, app_id, TargetType::Profile, user_id, "profile").await?;
     Ok(Json(profile))
@@ -103,6 +105,7 @@ pub(crate) async fn ensure_profile_visible(
     if !visible {
         return Err(ApiError::NotFound("profile"));
     }
+    ensure_not_blocked(state, app_id, viewer_id, user_id, "profile").await?;
     ensure_account_visible(state, app_id, user_id).await?;
     ensure_content_visible(state, app_id, TargetType::Profile, user_id, "profile").await
 }

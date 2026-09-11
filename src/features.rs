@@ -14,19 +14,23 @@ pub enum Feature {
     Comments,
     Follows,
     Saves,
+    Blocks,
+    Mutes,
     Groups,
     Chat,
     Moderation,
 }
 
 impl Feature {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 11] = [
         Self::Profiles,
         Self::Media,
         Self::Posts,
         Self::Comments,
         Self::Follows,
         Self::Saves,
+        Self::Blocks,
+        Self::Mutes,
         Self::Groups,
         Self::Chat,
         Self::Moderation,
@@ -40,6 +44,8 @@ impl Feature {
             "comments" => Some(Self::Comments),
             "follows" => Some(Self::Follows),
             "saves" => Some(Self::Saves),
+            "blocks" => Some(Self::Blocks),
+            "mutes" => Some(Self::Mutes),
             "groups" => Some(Self::Groups),
             "chat" => Some(Self::Chat),
             "moderation" => Some(Self::Moderation),
@@ -53,6 +59,8 @@ impl Feature {
             Self::Media
             | Self::Posts
             | Self::Follows
+            | Self::Blocks
+            | Self::Mutes
             | Self::Groups
             | Self::Chat
             | Self::Moderation => &[Self::Profiles],
@@ -62,8 +70,14 @@ impl Feature {
 
     pub const fn integrates_with(self) -> &'static [Self] {
         match self {
-            Self::Profiles | Self::Posts | Self::Chat => &[Self::Media],
+            Self::Profiles => &[Self::Media],
+            Self::Posts => &[Self::Media, Self::Blocks, Self::Mutes],
+            Self::Comments => &[Self::Blocks, Self::Mutes],
+            Self::Follows => &[Self::Blocks],
+            Self::Blocks => &[Self::Follows, Self::Posts, Self::Comments, Self::Chat],
+            Self::Mutes => &[Self::Posts, Self::Comments],
             Self::Groups => &[Self::Media, Self::Chat],
+            Self::Chat => &[Self::Media, Self::Blocks],
             Self::Moderation => &[
                 Self::Media,
                 Self::Posts,
@@ -73,7 +87,7 @@ impl Feature {
                 Self::Groups,
                 Self::Chat,
             ],
-            Self::Media | Self::Comments | Self::Follows | Self::Saves => &[],
+            Self::Media | Self::Saves => &[],
         }
     }
 
@@ -91,6 +105,8 @@ impl fmt::Display for Feature {
             Self::Comments => "comments",
             Self::Follows => "follows",
             Self::Saves => "saves",
+            Self::Blocks => "blocks",
+            Self::Mutes => "mutes",
             Self::Groups => "groups",
             Self::Chat => "chat",
             Self::Moderation => "moderation",
@@ -273,6 +289,19 @@ mod tests {
         assert_eq!(
             features.effective(),
             vec![Feature::Profiles, Feature::Posts, Feature::Saves]
+        );
+    }
+
+    #[test]
+    fn blocks_and_mutes_resolve_profiles_without_forcing_other_surfaces() {
+        let features = FeatureSet::from_csv("blocks,mutes").expect("safety relationships resolve");
+        assert_eq!(
+            features.app_requested(),
+            vec![Feature::Blocks, Feature::Mutes]
+        );
+        assert_eq!(
+            features.effective(),
+            vec![Feature::Profiles, Feature::Blocks, Feature::Mutes]
         );
     }
 

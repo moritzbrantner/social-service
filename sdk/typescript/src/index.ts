@@ -40,5 +40,6 @@ export type {
   Profile,
   SavedPost,
   UserModeration,
+  UserSafetyRelationship,
   Visibility,
 } from "./types";

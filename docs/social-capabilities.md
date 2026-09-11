@@ -43,7 +43,7 @@ If a product later needs a 1-5 star score, model that separately as a **rating**
 
 Conversation message pins are shared chat state, not private favorites. The minimal implementation keeps pins inside the existing `chat` capability: current conversation members can pin or unpin a message, and current members can list the pinned messages. Pinning and unpinning are idempotent and do not reorder the conversation list.
 
-Pinned-message reads reapply message/account moderation boundaries. The database relation includes both conversation and message identity so a message cannot be pinned into a different conversation. More restrictive pin authority for particular products or linked group chats can be added later without changing message identity or turning pins into reactions.
+Pinned-message reads reapply message/account moderation and user-block boundaries. The database relation includes both conversation and message identity so a message cannot be pinned into a different conversation. More restrictive pin authority for particular products or linked group chats can be added later without changing message identity or turning pins into reactions.
 
 ## Votes
 
@@ -57,9 +57,15 @@ A repost/reshare is social content structure, not merely a reaction. If introduc
 
 ## Blocks and mutes
 
-Blocks and mutes are social-domain relationships and belong here when needed. They must feed a shared visibility/policy boundary so timelines, comments, reactions, profile access, and later discovery do not each reinvent filtering rules.
+`blocks` and `mutes` are implemented first-class capabilities backed by app-scoped PostgreSQL relationships and shared policy predicates. They remain distinct from follows, moderation, group roles, and each other.
 
-Keep their first implementation as direct PostgreSQL relationship checks. A policy engine is an optional later strategy.
+A block is stored as a directional user action, but enforcement is intentionally bilateral between the two users. Profile/post access, follow operations and follow-graph reads, timelines, comment lists, and message/pin reads apply the same block predicate. Creating a conversation containing a blocked pair is rejected. Existing non-group two-person conversations become non-writable while a block exists, while history is retained. Group-linked conversations keep group semantics even when membership later shrinks to two people.
+
+Blocking removes existing follow edges in both directions in the same transaction. Unblocking is idempotent and never reconstructs those social relationships. Blocking does not silently remove either user from a shared group or destroy conversation history. The public API exposes only the current user's outgoing block list; it does not provide a "who blocked me" oracle.
+
+A mute is directional and private. It filters the muted user's authored content from the muter's derived timeline and comment-list views, but it does not sever follows, hide direct profile/post access, prevent chat, affect the muted person's view, or grant moderation authority. Unmuting simply restores those derived reads.
+
+The first implementation deliberately uses direct PostgreSQL relationship checks. If scale later justifies a policy cache or derived graph, it must reproduce the same semantics and app isolation rather than becoming a second source of truth.
 
 ## Mentions and notifications
 
@@ -75,6 +81,8 @@ Do not merge concepts merely because they use similar UI controls:
 - bookmark/private star -> private **save**;
 - 1-5 stars -> **rating**;
 - upvote/downvote -> **vote**;
+- block -> bilateral safety/contact policy from a directional user action;
+- mute -> private viewer-side filtering;
 - repost -> content relationship;
 - share to another app -> client/integration behavior.
 

@@ -20,7 +20,7 @@ impl Config {
             .parse()
             .map_err(ConfigError::InvalidBind)?;
         let features = FeatureSet::from_csv(&env::var("SOCIAL_FEATURES").unwrap_or_else(|_| {
-            "profiles,media,posts,comments,follows,saves,groups,chat".to_owned()
+            "profiles,media,posts,comments,follows,saves,blocks,mutes,groups,chat".to_owned()
         }))?;
 
         Ok(Self {
