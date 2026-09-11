@@ -69,8 +69,14 @@ async fn blocks_and_mutes_share_one_cross_surface_safety_policy() {
     let alice_post = create_post(&state, app_id, alice, "Alice post").await;
     let bob_post = create_post(&state, app_id, bob, "Bob post").await;
 
-    assert_eq!(follow(&state, app_id, alice, bob).await.status(), StatusCode::NO_CONTENT);
-    assert_eq!(follow(&state, app_id, bob, alice).await.status(), StatusCode::NO_CONTENT);
+    assert_eq!(
+        follow(&state, app_id, alice, bob).await.status(),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        follow(&state, app_id, bob, alice).await.status(),
+        StatusCode::NO_CONTENT
+    );
 
     let direct = create_conversation(&state, app_id, alice, &[bob]).await;
     let direct_id = Uuid::parse_str(direct["id"].as_str().expect("conversation id"))
@@ -106,7 +112,8 @@ async fn blocks_and_mutes_share_one_cross_surface_safety_policy() {
             .expect("shared message id"),
     )
     .expect("shared message id should be UUID");
-    let _carol_shared_message = send_message(&state, app_id, carol, shared_id, "Carol shared").await;
+    let _carol_shared_message =
+        send_message(&state, app_id, carol, shared_id, "Carol shared").await;
 
     let response = send(
         &state,
@@ -173,19 +180,21 @@ async fn blocks_and_mutes_share_one_cross_surface_safety_policy() {
         StatusCode::OK,
         "block policy must remain app-scoped"
     );
-    assert_eq!(follow(&state, app_id, alice, bob).await.status(), StatusCode::NOT_FOUND);
-    assert_eq!(follow(&state, app_id, bob, alice).await.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        follow(&state, app_id, alice, bob).await.status(),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        follow(&state, app_id, bob, alice).await.status(),
+        StatusCode::NOT_FOUND
+    );
 
-    let blocks = json_body(
-        send(&state, Method::GET, "/v1/blocks", app_id, alice, None).await,
-    )
-    .await;
+    let blocks =
+        json_body(send(&state, Method::GET, "/v1/blocks", app_id, alice, None).await).await;
     assert_eq!(blocks.as_array().expect("blocks").len(), 1);
     assert_eq!(blocks[0]["userId"], bob.to_string());
-    let bob_blocks = json_body(
-        send(&state, Method::GET, "/v1/blocks", app_id, bob, None).await,
-    )
-    .await;
+    let bob_blocks =
+        json_body(send(&state, Method::GET, "/v1/blocks", app_id, bob, None).await).await;
     assert!(bob_blocks.as_array().expect("Bob blocks").is_empty());
 
     assert_eq!(
@@ -228,7 +237,10 @@ async fn blocks_and_mutes_share_one_cross_surface_safety_policy() {
     )
     .await;
     assert!(
-        direct_messages.as_array().expect("direct messages").is_empty(),
+        direct_messages
+            .as_array()
+            .expect("direct messages")
+            .is_empty(),
         "blocked authors must disappear from message reads"
     );
     let direct_pins = json_body(
@@ -259,7 +271,14 @@ async fn blocks_and_mutes_share_one_cross_surface_safety_policy() {
     );
 
     assert_eq!(
-        send_message_status(&state, app_id, alice, shared_id, "Alice can still use shared chat").await,
+        send_message_status(
+            &state,
+            app_id,
+            alice,
+            shared_id,
+            "Alice can still use shared chat"
+        )
+        .await,
         StatusCode::OK,
         "a block must not silently rewrite shared-group membership"
     );
@@ -276,9 +295,21 @@ async fn blocks_and_mutes_share_one_cross_surface_safety_policy() {
     )
     .await;
     let shared_messages = shared_messages.as_array().expect("shared messages");
-    assert!(shared_messages.iter().any(|message| message["authorId"] == carol.to_string()));
-    assert!(shared_messages.iter().any(|message| message["authorId"] == alice.to_string()));
-    assert!(!shared_messages.iter().any(|message| message["authorId"] == bob.to_string()));
+    assert!(
+        shared_messages
+            .iter()
+            .any(|message| message["authorId"] == carol.to_string())
+    );
+    assert!(
+        shared_messages
+            .iter()
+            .any(|message| message["authorId"] == alice.to_string())
+    );
+    assert!(
+        !shared_messages
+            .iter()
+            .any(|message| message["authorId"] == bob.to_string())
+    );
 
     assert_eq!(
         send(
@@ -319,7 +350,10 @@ async fn blocks_and_mutes_share_one_cross_surface_safety_policy() {
         0,
         "unblocking must not recreate old follows"
     );
-    assert_eq!(follow(&state, app_id, alice, bob).await.status(), StatusCode::NO_CONTENT);
+    assert_eq!(
+        follow(&state, app_id, alice, bob).await.status(),
+        StatusCode::NO_CONTENT
+    );
 
     let bob_comment = create_comment(&state, app_id, bob, alice_post, "Bob comment").await;
     let carol_comment = create_comment(&state, app_id, carol, alice_post, "Carol comment").await;
@@ -358,15 +392,15 @@ async fn blocks_and_mutes_share_one_cross_surface_safety_policy() {
         StatusCode::OK
     );
 
-    let timeline = json_body(
-        send(&state, Method::GET, "/v1/timeline", app_id, alice, None).await,
-    )
-    .await;
-    assert!(!timeline
-        .as_array()
-        .expect("timeline")
-        .iter()
-        .any(|post| post["authorId"] == bob.to_string()));
+    let timeline =
+        json_body(send(&state, Method::GET, "/v1/timeline", app_id, alice, None).await).await;
+    assert!(
+        !timeline
+            .as_array()
+            .expect("timeline")
+            .iter()
+            .any(|post| post["authorId"] == bob.to_string())
+    );
 
     let comments = json_body(
         send(
@@ -381,13 +415,18 @@ async fn blocks_and_mutes_share_one_cross_surface_safety_policy() {
     )
     .await;
     let comments = comments.as_array().expect("comments");
-    assert!(!comments.iter().any(|comment| comment["authorId"] == bob.to_string()));
-    assert!(comments.iter().any(|comment| comment["authorId"] == carol.to_string()));
+    assert!(
+        !comments
+            .iter()
+            .any(|comment| comment["authorId"] == bob.to_string())
+    );
+    assert!(
+        comments
+            .iter()
+            .any(|comment| comment["authorId"] == carol.to_string())
+    );
 
-    let mutes = json_body(
-        send(&state, Method::GET, "/v1/mutes", app_id, alice, None).await,
-    )
-    .await;
+    let mutes = json_body(send(&state, Method::GET, "/v1/mutes", app_id, alice, None).await).await;
     assert_eq!(mutes.as_array().expect("mutes").len(), 1);
     assert_eq!(mutes[0]["userId"], bob.to_string());
 
@@ -404,15 +443,15 @@ async fn blocks_and_mutes_share_one_cross_surface_safety_policy() {
         .status(),
         StatusCode::NO_CONTENT
     );
-    let timeline = json_body(
-        send(&state, Method::GET, "/v1/timeline", app_id, alice, None).await,
-    )
-    .await;
-    assert!(timeline
-        .as_array()
-        .expect("timeline")
-        .iter()
-        .any(|post| post["authorId"] == bob.to_string()));
+    let timeline =
+        json_body(send(&state, Method::GET, "/v1/timeline", app_id, alice, None).await).await;
+    assert!(
+        timeline
+            .as_array()
+            .expect("timeline")
+            .iter()
+            .any(|post| post["authorId"] == bob.to_string())
+    );
 
     assert_eq!(
         send(

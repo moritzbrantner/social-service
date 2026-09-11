@@ -21,9 +21,7 @@ use crate::{
         RestrictionScope, TargetType, ensure_account_visible, ensure_content_visible,
         ensure_user_can,
     },
-    relationships::{
-        ensure_direct_conversation_unblocked, ensure_not_blocked, members_have_block,
-    },
+    relationships::{ensure_direct_conversation_unblocked, ensure_not_blocked, members_have_block},
     routes::posts::{attach_media, load_media_ids},
     state::AppState,
 };

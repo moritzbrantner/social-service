@@ -21,13 +21,7 @@ pub async fn block_user(
 ) -> Result<StatusCode, ApiError> {
     state.features.require(Feature::Blocks)?;
     let context = RequestContext::from_headers(&headers)?;
-    ensure_relationship_target(
-        &state,
-        context.app_id.0,
-        context.user_id.0,
-        user_id,
-    )
-    .await?;
+    ensure_relationship_target(&state, context.app_id.0, context.user_id.0, user_id).await?;
 
     let mut transaction = state.pool.begin().await?;
     sqlx::query(
@@ -58,12 +52,14 @@ pub async fn unblock_user(
 ) -> Result<StatusCode, ApiError> {
     state.features.require(Feature::Blocks)?;
     let context = RequestContext::from_headers(&headers)?;
-    sqlx::query("DELETE FROM user_blocks WHERE app_id = $1 AND blocker_id = $2 AND blocked_id = $3")
-        .bind(context.app_id.0)
-        .bind(context.user_id.0)
-        .bind(user_id)
-        .execute(&state.pool)
-        .await?;
+    sqlx::query(
+        "DELETE FROM user_blocks WHERE app_id = $1 AND blocker_id = $2 AND blocked_id = $3",
+    )
+    .bind(context.app_id.0)
+    .bind(context.user_id.0)
+    .bind(user_id)
+    .execute(&state.pool)
+    .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -92,13 +88,7 @@ pub async fn mute_user(
 ) -> Result<StatusCode, ApiError> {
     state.features.require(Feature::Mutes)?;
     let context = RequestContext::from_headers(&headers)?;
-    ensure_relationship_target(
-        &state,
-        context.app_id.0,
-        context.user_id.0,
-        user_id,
-    )
-    .await?;
+    ensure_relationship_target(&state, context.app_id.0, context.user_id.0, user_id).await?;
     sqlx::query(
         "INSERT INTO user_mutes (app_id, muter_id, muted_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
     )

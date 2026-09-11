@@ -34,14 +34,14 @@ pub async fn users_are_blocked(
     if !state.features.is_enabled(Feature::Blocks) || left_id == right_id {
         return Ok(false);
     }
-    Ok(sqlx::query_scalar::<_, bool>(
-        "SELECT social_users_blocked($1, $2, $3)",
+    Ok(
+        sqlx::query_scalar::<_, bool>("SELECT social_users_blocked($1, $2, $3)")
+            .bind(app_id)
+            .bind(left_id)
+            .bind(right_id)
+            .fetch_one(&state.pool)
+            .await?,
     )
-    .bind(app_id)
-    .bind(left_id)
-    .bind(right_id)
-    .fetch_one(&state.pool)
-    .await?)
 }
 
 pub async fn members_have_block(
