@@ -54,6 +54,11 @@ export type FollowEdge = {
   createdAt: string;
 };
 
+export type UserSafetyRelationship = {
+  userId: Id;
+  createdAt: string;
+};
+
 export type GroupRole = "owner" | "admin" | "member";
 
 export type GroupMember = {
@@ -126,6 +131,8 @@ export type Feature =
   | "comments"
   | "follows"
   | "saves"
+  | "blocks"
+  | "mutes"
   | "groups"
   | "chat"
   | "moderation";
