@@ -2,6 +2,7 @@ mod chat;
 mod groups;
 mod media;
 mod moderation;
+mod moderation_signals;
 mod posts;
 mod profiles;
 mod saves;
@@ -80,6 +81,10 @@ pub fn router() -> Router<AppState> {
         .route(
             "/moderation/cases/{case_id}",
             put(moderation::set_case_state),
+        )
+        .route(
+            "/moderation/signals",
+            get(moderation_signals::list_signals).post(moderation_signals::create_signal),
         )
         .route(
             "/moderation/content/{target_type}/{target_id}",

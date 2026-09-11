@@ -161,6 +161,8 @@ export type ModerationRestrictionScope =
   | "chat";
 export type ModerationCapability =
   | "reports.read"
+  | "signals.read"
+  | "signals.write"
   | "content.moderate"
   | "users.restrict"
   | "roles.manage"
@@ -221,6 +223,51 @@ export type ModerationAuditEvent = {
   caseId: Id | null;
   correlationId: string | null;
   createdAt: string;
+};
+
+export type ModerationSignalSeverity = "low" | "medium" | "high" | "critical";
+
+export type ModerationSignal = {
+  id: Id;
+  caseId: Id | null;
+  targetType: ModerationTargetType;
+  targetId: Id;
+  source: string;
+  kind: string;
+  severity: ModerationSignalSeverity;
+  confidence: number | null;
+  model: string | null;
+  modelVersion: string | null;
+  evidence: Record<string, unknown>;
+  idempotencyKey: string;
+  observedAt: string;
+  ingestedBy: Id;
+  correlationId: string | null;
+  createdAt: string;
+};
+
+export type CreateModerationSignalInput = {
+  targetType: ModerationTargetType;
+  targetId: Id;
+  caseId?: Id | null;
+  source: string;
+  kind: string;
+  severity: ModerationSignalSeverity;
+  confidence?: number | null;
+  model?: string | null;
+  modelVersion?: string | null;
+  evidence?: Record<string, unknown>;
+  idempotencyKey: string;
+  observedAt?: string | null;
+};
+
+export type ModerationSignalQuery = {
+  targetType?: ModerationTargetType;
+  targetId?: Id;
+  caseId?: Id;
+  minimumSeverity?: ModerationSignalSeverity;
+  source?: string;
+  limit?: number;
 };
 
 export type ModerationTargetSnapshot =

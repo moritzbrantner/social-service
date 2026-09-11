@@ -116,6 +116,7 @@ impl Role {
         match self {
             Self::Moderator => &[
                 Capability::ReportsRead,
+                Capability::SignalsRead,
                 Capability::ContentModerate,
                 Capability::UsersRestrict,
                 Capability::AuditRead,
@@ -155,6 +156,8 @@ impl RestrictionScope {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Capability {
     ReportsRead,
+    SignalsRead,
+    SignalsWrite,
     ContentModerate,
     UsersRestrict,
     RolesManage,
@@ -162,8 +165,10 @@ pub enum Capability {
 }
 
 impl Capability {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 7] = [
         Self::ReportsRead,
+        Self::SignalsRead,
+        Self::SignalsWrite,
         Self::ContentModerate,
         Self::UsersRestrict,
         Self::RolesManage,
@@ -173,6 +178,8 @@ impl Capability {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::ReportsRead => "reports.read",
+            Self::SignalsRead => "signals.read",
+            Self::SignalsWrite => "signals.write",
             Self::ContentModerate => "content.moderate",
             Self::UsersRestrict => "users.restrict",
             Self::RolesManage => "roles.manage",
@@ -183,6 +190,8 @@ impl Capability {
     fn parse(value: &str) -> Option<Self> {
         match value {
             "reports.read" => Some(Self::ReportsRead),
+            "signals.read" => Some(Self::SignalsRead),
+            "signals.write" => Some(Self::SignalsWrite),
             "content.moderate" => Some(Self::ContentModerate),
             "users.restrict" => Some(Self::UsersRestrict),
             "roles.manage" => Some(Self::RolesManage),
@@ -485,11 +494,21 @@ mod tests {
     use super::{Capability, Role, trusted_capabilities};
 
     #[test]
-    fn moderator_role_has_no_role_management_capability() {
+    fn moderator_role_has_review_but_not_signal_ingestion_or_role_management() {
         assert!(
             Role::Moderator
                 .capabilities()
                 .contains(&Capability::ReportsRead)
+        );
+        assert!(
+            Role::Moderator
+                .capabilities()
+                .contains(&Capability::SignalsRead)
+        );
+        assert!(
+            !Role::Moderator
+                .capabilities()
+                .contains(&Capability::SignalsWrite)
         );
         assert!(
             !Role::Moderator
@@ -499,7 +518,7 @@ mod tests {
         assert!(
             Role::Admin
                 .capabilities()
-                .contains(&Capability::RolesManage)
+                .contains(&Capability::SignalsWrite)
         );
     }
 
