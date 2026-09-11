@@ -16,7 +16,7 @@ use crate::{
         RestrictionScope, TargetType, ensure_account_visible, ensure_content_visible,
         ensure_user_can,
     },
-    relationships::ensure_not_blocked,
+    relationships::{ensure_not_blocked, lock_user_pair, users_are_blocked_in_transaction},
     state::AppState,
 };
 
@@ -157,12 +157,34 @@ pub async fn follow_user(
         ));
     }
     ensure_profile_visible(&state, context.app_id.0, user_id, Some(context.user_id.0)).await?;
+
+    let mut transaction = state.pool.begin().await?;
+    if state.features.is_enabled(Feature::Blocks) {
+        lock_user_pair(
+            &mut transaction,
+            context.app_id.0,
+            context.user_id.0,
+            user_id,
+        )
+        .await?;
+        if users_are_blocked_in_transaction(
+            &mut transaction,
+            context.app_id.0,
+            context.user_id.0,
+            user_id,
+        )
+        .await?
+        {
+            return Err(ApiError::NotFound("profile"));
+        }
+    }
     sqlx::query("INSERT INTO follows (app_id, follower_id, followed_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING")
         .bind(context.app_id.0)
         .bind(context.user_id.0)
         .bind(user_id)
-        .execute(&state.pool)
+        .execute(&mut *transaction)
         .await?;
+    transaction.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
