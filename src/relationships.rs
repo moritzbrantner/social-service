@@ -69,6 +69,16 @@ pub async fn ensure_direct_conversation_unblocked(
     if !state.features.is_enabled(Feature::Blocks) {
         return Ok(());
     }
+    let is_group_conversation = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM group_conversations WHERE app_id = $1 AND conversation_id = $2)",
+    )
+    .bind(app_id)
+    .bind(conversation_id)
+    .fetch_one(&state.pool)
+    .await?;
+    if is_group_conversation {
+        return Ok(());
+    }
     let member_ids = sqlx::query_scalar::<_, Uuid>(
         "SELECT user_id FROM conversation_members WHERE app_id = $1 AND conversation_id = $2 ORDER BY user_id ASC",
     )
