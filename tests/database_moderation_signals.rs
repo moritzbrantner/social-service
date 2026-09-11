@@ -57,7 +57,8 @@ async fn moderation_signals_are_scoped_idempotent_explainable_and_non_authoritat
     .await;
     assert_eq!(response.status(), StatusCode::OK);
     let post = json_body(response).await;
-    let post_id = Uuid::parse_str(post["id"].as_str().expect("post id")).expect("UUID post id");
+    let post_id =
+        Uuid::parse_str(post["id"].as_str().expect("post id")).expect("UUID post id");
 
     let signal_input = json!({
         "targetType": "post",
@@ -149,7 +150,9 @@ async fn moderation_signals_are_scoped_idempotent_explainable_and_non_authoritat
     let response = send(
         &state,
         Method::GET,
-        &format!("/v1/moderation/signals?targetType=post&targetId={post_id}&minimumSeverity=high"),
+        &format!(
+            "/v1/moderation/signals?targetType=post&targetId={post_id}&minimumSeverity=high"
+        ),
         app_id,
         adapter_id,
         Some("signals.read"),
@@ -173,7 +176,14 @@ async fn moderation_signals_are_scoped_idempotent_explainable_and_non_authoritat
     )
     .await;
     assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(json_body(response).await.as_array().expect("signals").len(), 0);
+    assert_eq!(
+        json_body(response)
+            .await
+            .as_array()
+            .expect("signals")
+            .len(),
+        0
+    );
 
     let conflicting = json!({
         "targetType": "post",
@@ -264,14 +274,21 @@ async fn moderation_signals_are_scoped_idempotent_explainable_and_non_authoritat
     .await;
     assert_eq!(response.status(), StatusCode::OK);
 
-    let signal_id = Uuid::parse_str(first["id"].as_str().expect("signal id")).expect("UUID signal id");
-    let mutation_error = sqlx::query("UPDATE moderation_signals SET kind = 'changed' WHERE app_id = $1 AND id = $2")
-        .bind(app_id)
-        .bind(signal_id)
-        .execute(&state.pool)
-        .await
-        .expect_err("signal evidence must be immutable");
-    assert!(mutation_error.to_string().contains("moderation signals are immutable"));
+    let signal_id = Uuid::parse_str(first["id"].as_str().expect("signal id"))
+        .expect("UUID signal id");
+    let mutation_error = sqlx::query(
+        "UPDATE moderation_signals SET kind = 'changed' WHERE app_id = $1 AND id = $2",
+    )
+    .bind(app_id)
+    .bind(signal_id)
+    .execute(&state.pool)
+    .await
+    .expect_err("signal evidence must be immutable");
+    assert!(
+        mutation_error
+            .to_string()
+            .contains("moderation signals are immutable")
+    );
 }
 
 async fn send(
