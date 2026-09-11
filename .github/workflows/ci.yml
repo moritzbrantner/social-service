@@ -52,6 +52,7 @@ jobs:
       - run: cargo test --locked --test database_groups -- --ignored --nocapture
       - run: cargo test --locked --test database_group_moderation -- --ignored --nocapture
       - run: cargo test --locked --test database_saved_and_pinned_content -- --ignored --nocapture
+      - run: cargo test --locked --test database_user_safety_relationships -- --ignored --nocapture
 
   typescript:
     runs-on: ubuntu-24.04
