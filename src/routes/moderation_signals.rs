@@ -86,7 +86,8 @@ pub async fn create_signal(
 
     let source = required_text(&input.source, "source", 120)?;
     let kind = required_text(&input.kind, "kind", 120)?;
-    let idempotency_key = required_text(&input.idempotency_key, "idempotencyKey", 128)?;
+    let idempotency_key =
+        required_text(&input.idempotency_key, "idempotencyKey", 128)?;
     let model = optional_text(input.model.as_deref(), "model", 200)?;
     let model_version = optional_text(input.model_version.as_deref(), "modelVersion", 120)?;
     if input
@@ -268,9 +269,18 @@ mod tests {
 
     #[test]
     fn trims_and_bounds_signal_identifiers() {
-        assert_eq!(required_text("  spam  ", "kind", 10).expect("valid"), "spam");
+        assert_eq!(
+            required_text("  spam  ", "kind", 10).expect("valid"),
+            "spam"
+        );
         assert!(required_text("   ", "kind", 10).is_err());
-        assert_eq!(optional_text(Some(" model "), "model", 10).expect("valid"), Some("model"));
-        assert_eq!(optional_text(Some("  "), "model", 10).expect("valid"), None);
+        assert_eq!(
+            optional_text(Some(" model "), "model", 10).expect("valid"),
+            Some("model")
+        );
+        assert_eq!(
+            optional_text(Some("  "), "model", 10).expect("valid"),
+            None
+        );
     }
 }
