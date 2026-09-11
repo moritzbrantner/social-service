@@ -1,3 +1,4 @@
+use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::{error::ApiError, features::Feature, state::AppState};
@@ -42,6 +43,21 @@ pub async fn users_are_blocked(
             .fetch_one(&state.pool)
             .await?,
     )
+}
+
+pub async fn lock_user_pair(
+    transaction: &mut Transaction<'_, Postgres>,
+    app_id: Uuid,
+    left_id: Uuid,
+    right_id: Uuid,
+) -> Result<(), ApiError> {
+    sqlx::query("SELECT social_lock_user_pair($1, $2, $3)")
+        .bind(app_id)
+        .bind(left_id)
+        .bind(right_id)
+        .execute(&mut **transaction)
+        .await?;
+    Ok(())
 }
 
 pub async fn members_have_block(
