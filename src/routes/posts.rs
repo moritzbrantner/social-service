@@ -16,6 +16,7 @@ use crate::{
         RestrictionScope, TargetType, ensure_account_visible, ensure_content_visible,
         ensure_user_can,
     },
+    relationships::ensure_not_blocked,
     state::AppState,
 };
 
@@ -128,11 +129,14 @@ pub async fn list_comments(
     let viewer_id = optional_user_id(&headers)?.map(|user_id| user_id.0);
     ensure_post_visible(&state, app_id, post_id, viewer_id).await?;
     let comments = sqlx::query_as::<_, Comment>(
-        "SELECT c.id, c.post_id, c.author_id, c.body, c.created_at, c.updated_at, c.version FROM comments c WHERE c.app_id = $1 AND c.post_id = $2 AND ($3 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'comment' AND mcs.target_id = c.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = c.author_id AND mas.state IN ('suspended', 'banned')))) ORDER BY c.created_at ASC, c.id ASC LIMIT $4",
+        "SELECT c.id, c.post_id, c.author_id, c.body, c.created_at, c.updated_at, c.version FROM comments c WHERE c.app_id = $1 AND c.post_id = $2 AND ($3 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'comment' AND mcs.target_id = c.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = c.author_id AND mas.state IN ('suspended', 'banned')))) AND ($5 = FALSE OR $4 IS NULL OR NOT social_users_blocked($1, $4, c.author_id)) AND ($6 = FALSE OR $4 IS NULL OR NOT social_user_muted($1, $4, c.author_id)) ORDER BY c.created_at ASC, c.id ASC LIMIT $7",
     )
     .bind(app_id)
     .bind(post_id)
     .bind(state.features.is_enabled(Feature::Moderation))
+    .bind(viewer_id)
+    .bind(state.features.is_enabled(Feature::Blocks))
+    .bind(state.features.is_enabled(Feature::Mutes))
     .bind(query.limit())
     .fetch_all(&state.pool)
     .await?;
@@ -190,12 +194,13 @@ pub async fn followers(
     let viewer_id = optional_user_id(&headers)?.map(|user_id| user_id.0);
     ensure_profile_visible(&state, app_id, user_id, viewer_id).await?;
     let follows = sqlx::query_as::<_, FollowEdge>(
-        "SELECT f.follower_id, f.followed_id, f.created_at FROM follows f JOIN profiles p ON p.app_id = f.app_id AND p.user_id = f.follower_id WHERE f.app_id = $1 AND f.followed_id = $2 AND (p.visibility = 'public' OR p.user_id = $3 OR $3 = $2) AND ($4 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.user_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'profile' AND mcs.target_id = p.user_id AND mcs.state <> 'active'))) ORDER BY f.created_at DESC, f.follower_id ASC LIMIT $5",
+        "SELECT f.follower_id, f.followed_id, f.created_at FROM follows f JOIN profiles p ON p.app_id = f.app_id AND p.user_id = f.follower_id WHERE f.app_id = $1 AND f.followed_id = $2 AND (p.visibility = 'public' OR p.user_id = $3 OR $3 = $2) AND ($4 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.user_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'profile' AND mcs.target_id = p.user_id AND mcs.state <> 'active'))) AND ($5 = FALSE OR $3 IS NULL OR NOT social_users_blocked($1, $3, p.user_id)) ORDER BY f.created_at DESC, f.follower_id ASC LIMIT $6",
     )
     .bind(app_id)
     .bind(user_id)
     .bind(viewer_id)
     .bind(state.features.is_enabled(Feature::Moderation))
+    .bind(state.features.is_enabled(Feature::Blocks))
     .bind(query.limit())
     .fetch_all(&state.pool)
     .await?;
@@ -213,12 +218,13 @@ pub async fn following(
     let viewer_id = optional_user_id(&headers)?.map(|user_id| user_id.0);
     ensure_profile_visible(&state, app_id, user_id, viewer_id).await?;
     let follows = sqlx::query_as::<_, FollowEdge>(
-        "SELECT f.follower_id, f.followed_id, f.created_at FROM follows f JOIN profiles p ON p.app_id = f.app_id AND p.user_id = f.followed_id WHERE f.app_id = $1 AND f.follower_id = $2 AND (p.visibility = 'public' OR p.user_id = $3 OR $3 = $2) AND ($4 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.user_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'profile' AND mcs.target_id = p.user_id AND mcs.state <> 'active'))) ORDER BY f.created_at DESC, f.followed_id ASC LIMIT $5",
+        "SELECT f.follower_id, f.followed_id, f.created_at FROM follows f JOIN profiles p ON p.app_id = f.app_id AND p.user_id = f.followed_id WHERE f.app_id = $1 AND f.follower_id = $2 AND (p.visibility = 'public' OR p.user_id = $3 OR $3 = $2) AND ($4 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.user_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'profile' AND mcs.target_id = p.user_id AND mcs.state <> 'active'))) AND ($5 = FALSE OR $3 IS NULL OR NOT social_users_blocked($1, $3, p.user_id)) ORDER BY f.created_at DESC, f.followed_id ASC LIMIT $6",
     )
     .bind(app_id)
     .bind(user_id)
     .bind(viewer_id)
     .bind(state.features.is_enabled(Feature::Moderation))
+    .bind(state.features.is_enabled(Feature::Blocks))
     .bind(query.limit())
     .fetch_all(&state.pool)
     .await?;
@@ -234,11 +240,13 @@ pub async fn timeline(
     state.features.require(Feature::Follows)?;
     let context = RequestContext::from_headers(&headers)?;
     let rows = sqlx::query_as::<_, PostRow>(
-        "SELECT p.id, p.author_id, p.body, p.visibility, p.created_at, p.updated_at, p.version FROM posts p WHERE p.app_id = $1 AND (p.author_id = $2 OR EXISTS (SELECT 1 FROM follows f WHERE f.app_id = $1 AND f.follower_id = $2 AND f.followed_id = p.author_id)) AND (p.visibility = 'public' OR p.author_id = $2) AND ($3 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'post' AND mcs.target_id = p.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.author_id AND mas.state IN ('suspended', 'banned')))) ORDER BY p.created_at DESC, p.id ASC LIMIT $4",
+        "SELECT p.id, p.author_id, p.body, p.visibility, p.created_at, p.updated_at, p.version FROM posts p WHERE p.app_id = $1 AND (p.author_id = $2 OR EXISTS (SELECT 1 FROM follows f WHERE f.app_id = $1 AND f.follower_id = $2 AND f.followed_id = p.author_id)) AND (p.visibility = 'public' OR p.author_id = $2) AND ($3 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'post' AND mcs.target_id = p.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.author_id AND mas.state IN ('suspended', 'banned')))) AND ($4 = FALSE OR NOT social_users_blocked($1, $2, p.author_id)) AND ($5 = FALSE OR NOT social_user_muted($1, $2, p.author_id)) ORDER BY p.created_at DESC, p.id ASC LIMIT $6",
     )
     .bind(context.app_id.0)
     .bind(context.user_id.0)
     .bind(state.features.is_enabled(Feature::Moderation))
+    .bind(state.features.is_enabled(Feature::Blocks))
+    .bind(state.features.is_enabled(Feature::Mutes))
     .bind(query.limit())
     .fetch_all(&state.pool)
     .await?;
@@ -267,6 +275,7 @@ async fn load_post(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound("post"))?;
+    ensure_not_blocked(state, app_id, viewer_id, row.author_id, "post").await?;
     ensure_account_visible(state, app_id, row.author_id).await?;
     ensure_content_visible(state, app_id, TargetType::Post, post_id, "post").await?;
     let media_ids = load_media_ids(state, app_id, "post_media", "post_id", post_id).await?;
@@ -288,6 +297,7 @@ async fn ensure_post_visible(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound("post"))?;
+    ensure_not_blocked(state, app_id, viewer_id, author_id, "post").await?;
     ensure_account_visible(state, app_id, author_id).await?;
     ensure_content_visible(state, app_id, TargetType::Post, post_id, "post").await
 }
