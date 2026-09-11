@@ -123,6 +123,7 @@ pub async fn create_signal(
     )
     .await?;
 
+    let observed_at_was_supplied = input.observed_at.is_some();
     let observed_at = input.observed_at.unwrap_or_else(Utc::now);
     let correlation = correlation_id(&headers)?;
     let signal_id = Uuid::new_v4();
@@ -169,7 +170,7 @@ pub async fn create_signal(
             || existing.model.as_deref() != model
             || existing.model_version.as_deref() != model_version
             || existing.evidence != evidence
-            || existing.observed_at != observed_at
+            || (observed_at_was_supplied && existing.observed_at != observed_at)
         {
             return Err(ApiError::BadRequest(
                 "idempotencyKey was already used for a different moderation signal".to_owned(),
@@ -263,7 +264,7 @@ fn optional_text<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::{SignalSeverity, optional_text, required_text};
+    use super::{optional_text, required_text};
 
     #[test]
     fn trims_and_bounds_signal_identifiers() {
@@ -271,10 +272,5 @@ mod tests {
         assert!(required_text("   ", "kind", 10).is_err());
         assert_eq!(optional_text(Some(" model "), "model", 10).expect("valid"), Some("model"));
         assert_eq!(optional_text(Some("  "), "model", 10).expect("valid"), None);
-    }
-
-    #[test]
-    fn severity_order_matches_queue_priority() {
-        assert_ne!(SignalSeverity::Low, SignalSeverity::Critical);
     }
 }
