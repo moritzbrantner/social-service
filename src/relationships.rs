@@ -45,6 +45,22 @@ pub async fn users_are_blocked(
     )
 }
 
+pub async fn users_are_blocked_in_transaction(
+    transaction: &mut Transaction<'_, Postgres>,
+    app_id: Uuid,
+    left_id: Uuid,
+    right_id: Uuid,
+) -> Result<bool, ApiError> {
+    Ok(
+        sqlx::query_scalar::<_, bool>("SELECT social_users_blocked($1, $2, $3)")
+            .bind(app_id)
+            .bind(left_id)
+            .bind(right_id)
+            .fetch_one(&mut **transaction)
+            .await?,
+    )
+}
+
 pub async fn lock_user_pair(
     transaction: &mut Transaction<'_, Postgres>,
     app_id: Uuid,
