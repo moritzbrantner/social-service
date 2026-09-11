@@ -5,6 +5,7 @@ pub mod features;
 pub mod groups;
 pub mod models;
 pub mod moderation;
+pub mod relationships;
 pub mod routes;
 pub mod state;
 pub mod visibility;
