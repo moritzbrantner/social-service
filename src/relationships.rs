@@ -94,14 +94,15 @@ pub async fn ensure_relationship_target(
             "a user safety relationship cannot target the current user".to_owned(),
         ));
     }
-    let exists = sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS(SELECT 1 FROM profiles WHERE app_id = $1 AND user_id = $2)",
+    let profile_count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM profiles WHERE app_id = $1 AND user_id IN ($2, $3)",
     )
     .bind(app_id)
+    .bind(actor_id)
     .bind(target_id)
     .fetch_one(&state.pool)
     .await?;
-    if exists {
+    if profile_count == 2 {
         Ok(())
     } else {
         Err(ApiError::NotFound("profile"))
