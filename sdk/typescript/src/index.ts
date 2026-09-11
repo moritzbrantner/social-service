@@ -8,6 +8,7 @@ export type {
 export type {
   Comment,
   Conversation,
+  CreateModerationSignalInput,
   Feature,
   FeatureState,
   FollowEdge,
@@ -29,6 +30,9 @@ export type {
   ModerationRestriction,
   ModerationRestrictionScope,
   ModerationRole,
+  ModerationSignal,
+  ModerationSignalQuery,
+  ModerationSignalSeverity,
   ModerationTargetSnapshot,
   ModerationTargetType,
   PinnedMessage,
