@@ -278,6 +278,7 @@ pub async fn pin_message(
         "conversation",
     )
     .await?;
+    ensure_direct_conversation_unblocked(&state, context.app_id.0, conversation_id).await?;
 
     let author_id = sqlx::query_scalar::<_, Uuid>(
         "SELECT author_id FROM messages WHERE app_id = $1 AND conversation_id = $2 AND id = $3",
@@ -336,6 +337,7 @@ pub async fn unpin_message(
         "conversation",
     )
     .await?;
+    ensure_direct_conversation_unblocked(&state, context.app_id.0, conversation_id).await?;
 
     sqlx::query(
         "DELETE FROM conversation_message_pins WHERE app_id = $1 AND conversation_id = $2 AND message_id = $3",
