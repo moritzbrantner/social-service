@@ -15,6 +15,7 @@ import type {
   Post,
   Profile,
   SavedPost,
+  UserSafetyRelationship,
   Visibility,
 } from "./types";
 
@@ -121,6 +122,12 @@ export function createSocialClient(options: SocialClientOptions) {
       request<FollowEdge[]>(`/v1/follows/${userId}/followers?limit=${limit}`),
     following: (userId: Id, limit = 50) =>
       request<FollowEdge[]>(`/v1/follows/${userId}/following?limit=${limit}`),
+    block: (userId: Id) => request<void>(`/v1/blocks/${userId}`, { method: "PUT" }),
+    unblock: (userId: Id) => request<void>(`/v1/blocks/${userId}`, { method: "DELETE" }),
+    blocks: (limit = 50) => request<UserSafetyRelationship[]>(`/v1/blocks?limit=${limit}`),
+    mute: (userId: Id) => request<void>(`/v1/mutes/${userId}`, { method: "PUT" }),
+    unmute: (userId: Id) => request<void>(`/v1/mutes/${userId}`, { method: "DELETE" }),
+    mutes: (limit = 50) => request<UserSafetyRelationship[]>(`/v1/mutes?limit=${limit}`),
     timeline: (limit = 50) => request<Post[]>(`/v1/timeline?limit=${limit}`),
     createGroup,
     groups: (limit = 50) => request<Group[]>(`/v1/groups?limit=${limit}`),
