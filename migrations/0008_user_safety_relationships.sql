@@ -26,6 +26,21 @@ CREATE TABLE user_mutes (
 CREATE INDEX user_mutes_muted_idx
     ON user_mutes (app_id, muted_id, muter_id);
 
+CREATE FUNCTION social_lock_user_pair(p_app_id UUID, p_left_id UUID, p_right_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+VOLATILE
+AS $$
+BEGIN
+    PERFORM pg_advisory_xact_lock(
+        hashtextextended(
+            p_app_id::text || ':' || LEAST(p_left_id, p_right_id)::text || ':' || GREATEST(p_left_id, p_right_id)::text,
+            0
+        )
+    );
+END;
+$$;
+
 CREATE FUNCTION social_users_blocked(p_app_id UUID, p_left_id UUID, p_right_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
