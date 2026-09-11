@@ -7,12 +7,7 @@ use axum::{
 };
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
-use social_service::{
-    app,
-    features::FeatureSet,
-    relationships::lock_user_pair,
-    state::AppState,
-};
+use social_service::{app, features::FeatureSet, relationships::lock_user_pair, state::AppState};
 use sqlx::postgres::PgPoolOptions;
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -62,7 +57,8 @@ async fn block_policy_closes_saved_post_and_direct_pin_write_gaps() {
     )
     .expect("conversation id should be UUID");
 
-    let alice_message = create_message(&state, app_id, alice, conversation_id, "Alice message").await;
+    let alice_message =
+        create_message(&state, app_id, alice, conversation_id, "Alice message").await;
     let bob_message = create_message(&state, app_id, bob, conversation_id, "Bob message").await;
     assert_eq!(
         send(
@@ -92,18 +88,8 @@ async fn block_policy_closes_saved_post_and_direct_pin_write_gaps() {
         StatusCode::NO_CONTENT
     );
 
-    let saved = json_body(
-        send(
-            &state,
-            Method::GET,
-            "/v1/saved-posts",
-            app_id,
-            alice,
-            None,
-        )
-        .await,
-    )
-    .await;
+    let saved =
+        json_body(send(&state, Method::GET, "/v1/saved-posts", app_id, alice, None).await).await;
     assert!(
         saved.as_array().expect("saved-post list").is_empty(),
         "saved posts must reapply the current block boundary"
@@ -160,7 +146,10 @@ async fn block_policy_closes_saved_post_and_direct_pin_write_gaps() {
     .fetch_one(&state.pool)
     .await
     .expect("pin count should be readable");
-    assert_eq!(pin_count, 1, "blocked unpin must not mutate persisted pin state");
+    assert_eq!(
+        pin_count, 1,
+        "blocked unpin must not mutate persisted pin state"
+    );
 }
 
 #[tokio::test]
