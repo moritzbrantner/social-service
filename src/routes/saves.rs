@@ -15,6 +15,7 @@ use crate::{
     features::Feature,
     models::{LimitQuery, Post, PostRow, SavedPost},
     moderation::{TargetType, ensure_account_visible, ensure_content_visible},
+    relationships::ensure_not_blocked,
     state::AppState,
     visibility::Visibility,
 };
@@ -78,11 +79,12 @@ pub async fn list_saved_posts(
     state.features.require(Feature::Saves)?;
     let context = RequestContext::from_headers(&headers)?;
     let rows = sqlx::query_as::<_, SavedPostRecord>(
-        "SELECT p.id, p.author_id, p.body, p.visibility, p.created_at, p.updated_at, p.version, s.created_at AS saved_at FROM post_saves s JOIN posts p ON p.app_id = s.app_id AND p.id = s.post_id WHERE s.app_id = $1 AND s.user_id = $2 AND (p.visibility = 'public' OR p.author_id = $2) AND ($3 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'post' AND mcs.target_id = p.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.author_id AND mas.state IN ('suspended', 'banned')))) ORDER BY s.created_at DESC, p.id ASC LIMIT $4",
+        "SELECT p.id, p.author_id, p.body, p.visibility, p.created_at, p.updated_at, p.version, s.created_at AS saved_at FROM post_saves s JOIN posts p ON p.app_id = s.app_id AND p.id = s.post_id WHERE s.app_id = $1 AND s.user_id = $2 AND (p.visibility = 'public' OR p.author_id = $2) AND ($3 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'post' AND mcs.target_id = p.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.author_id AND mas.state IN ('suspended', 'banned')))) AND ($4 = FALSE OR NOT social_users_blocked($1, $2, p.author_id)) ORDER BY s.created_at DESC, p.id ASC LIMIT $5",
     )
     .bind(context.app_id.0)
     .bind(context.user_id.0)
     .bind(state.features.is_enabled(Feature::Moderation))
+    .bind(state.features.is_enabled(Feature::Blocks))
     .bind(query.limit())
     .fetch_all(&state.pool)
     .await?;
@@ -153,6 +155,7 @@ async fn ensure_saveable_post(
     .await?
     .ok_or(ApiError::NotFound("post"))?;
 
+    ensure_not_blocked(state, app_id, Some(user_id), author_id, "post").await?;
     ensure_account_visible(state, app_id, author_id).await?;
     ensure_content_visible(state, app_id, TargetType::Post, post_id, "post").await
 }
