@@ -1,4 +1,5 @@
 import type {
+  CreateModerationSignalInput,
   Id,
   ModerationAccountState,
   ModerationAuditEvent,
@@ -9,6 +10,8 @@ import type {
   ModerationMe,
   ModerationRestrictionScope,
   ModerationRole,
+  ModerationSignal,
+  ModerationSignalQuery,
   ModerationTargetSnapshot,
   ModerationTargetType,
   UserModeration,
@@ -51,6 +54,20 @@ export function createTrustedModerationClient(options: TrustedModerationClientOp
       const params = new URLSearchParams({ limit: String(limit) });
       if (state) params.set("state", state);
       return request<ModerationCase[]>(`/v1/moderation/cases?${params}`);
+    },
+    ingestSignal: (input: CreateModerationSignalInput) =>
+      request<ModerationSignal>("/v1/moderation/signals", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    signals: (query: ModerationSignalQuery = {}) => {
+      const params = new URLSearchParams({ limit: String(query.limit ?? 50) });
+      if (query.targetType) params.set("targetType", query.targetType);
+      if (query.targetId) params.set("targetId", query.targetId);
+      if (query.caseId) params.set("caseId", query.caseId);
+      if (query.minimumSeverity) params.set("minimumSeverity", query.minimumSeverity);
+      if (query.source) params.set("source", query.source);
+      return request<ModerationSignal[]>(`/v1/moderation/signals?${params}`);
     },
     setCaseState: (caseId: Id, state: ModerationCaseState, resolutionNote?: string | null) =>
       request<void>(`/v1/moderation/cases/${caseId}`, {
