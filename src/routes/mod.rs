@@ -5,6 +5,7 @@ mod moderation;
 mod moderation_signals;
 mod posts;
 mod profiles;
+mod relationships;
 mod saves;
 
 use axum::{
@@ -40,6 +41,16 @@ pub fn router() -> Router<AppState> {
         )
         .route("/follows/{user_id}/followers", get(posts::followers))
         .route("/follows/{user_id}/following", get(posts::following))
+        .route("/blocks", get(relationships::list_blocks))
+        .route(
+            "/blocks/{user_id}",
+            put(relationships::block_user).delete(relationships::unblock_user),
+        )
+        .route("/mutes", get(relationships::list_mutes))
+        .route(
+            "/mutes/{user_id}",
+            put(relationships::mute_user).delete(relationships::unmute_user),
+        )
         .route("/timeline", get(posts::timeline))
         .route(
             "/groups",
