@@ -10,7 +10,7 @@ use crate::{
     error::ApiError,
     features::Feature,
     models::{LimitQuery, UserSafetyRelationship},
-    relationships::ensure_relationship_target,
+    relationships::{ensure_relationship_target, lock_user_pair},
     state::AppState,
 };
 
@@ -24,6 +24,13 @@ pub async fn block_user(
     ensure_relationship_target(&state, context.app_id.0, context.user_id.0, user_id).await?;
 
     let mut transaction = state.pool.begin().await?;
+    lock_user_pair(
+        &mut transaction,
+        context.app_id.0,
+        context.user_id.0,
+        user_id,
+    )
+    .await?;
     sqlx::query(
         "INSERT INTO user_blocks (app_id, blocker_id, blocked_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
     )
@@ -52,14 +59,23 @@ pub async fn unblock_user(
 ) -> Result<StatusCode, ApiError> {
     state.features.require(Feature::Blocks)?;
     let context = RequestContext::from_headers(&headers)?;
+    let mut transaction = state.pool.begin().await?;
+    lock_user_pair(
+        &mut transaction,
+        context.app_id.0,
+        context.user_id.0,
+        user_id,
+    )
+    .await?;
     sqlx::query(
         "DELETE FROM user_blocks WHERE app_id = $1 AND blocker_id = $2 AND blocked_id = $3",
     )
     .bind(context.app_id.0)
     .bind(context.user_id.0)
     .bind(user_id)
-    .execute(&state.pool)
+    .execute(&mut *transaction)
     .await?;
+    transaction.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
