@@ -56,27 +56,12 @@ async fn threaded_comments_preserve_structure_and_policy() {
     let leaf = create_comment(&state, app_id, owner_id, post_id, "leaf root").await;
     let leaf_id = id(&leaf);
 
-    let reply = reply_to_comment(
-        &state,
-        app_id,
-        other_id,
-        post_id,
-        root_id,
-        "first reply",
-    )
-    .await;
+    let reply = reply_to_comment(&state, app_id, other_id, post_id, root_id, "first reply").await;
     let reply_id = id(&reply);
     assert_eq!(reply["parentCommentId"], root_id.to_string());
 
-    let nested = reply_to_comment(
-        &state,
-        app_id,
-        owner_id,
-        post_id,
-        reply_id,
-        "nested reply",
-    )
-    .await;
+    let nested =
+        reply_to_comment(&state, app_id, owner_id, post_id, reply_id, "nested reply").await;
     let nested_id = id(&nested);
     assert_eq!(nested["parentCommentId"], reply_id.to_string());
 
@@ -93,9 +78,21 @@ async fn threaded_comments_preserve_structure_and_policy() {
     let roots = json_body(response).await;
     let roots = roots.as_array().expect("root comments should be an array");
     assert_eq!(roots.len(), 2);
-    assert!(roots.iter().any(|comment| comment["id"] == root_id.to_string()));
-    assert!(roots.iter().any(|comment| comment["id"] == leaf_id.to_string()));
-    assert!(!roots.iter().any(|comment| comment["id"] == reply_id.to_string()));
+    assert!(
+        roots
+            .iter()
+            .any(|comment| comment["id"] == root_id.to_string())
+    );
+    assert!(
+        roots
+            .iter()
+            .any(|comment| comment["id"] == leaf_id.to_string())
+    );
+    assert!(
+        !roots
+            .iter()
+            .any(|comment| comment["id"] == reply_id.to_string())
+    );
 
     let response = send(
         &state,
