@@ -14,6 +14,9 @@ import type {
   PinnedMessage,
   Post,
   Profile,
+  ReactionSummary,
+  ReactionTargetType,
+  ReactionType,
   SavedPost,
   UserSafetyRelationship,
   Visibility,
@@ -125,6 +128,12 @@ export function createSocialClient(options: SocialClientOptions) {
       }),
     deleteComment: (postId: Id, commentId: Id) =>
       request<void>(`/v1/posts/${postId}/comments/${commentId}`, { method: "DELETE" }),
+    reactions: (targetType: ReactionTargetType, targetId: Id) =>
+      request<ReactionSummary>(`/v1/reactions/${targetType}/${targetId}`),
+    react: (targetType: ReactionTargetType, targetId: Id, reactionType: ReactionType = "like") =>
+      request<void>(`/v1/reactions/${targetType}/${targetId}/${reactionType}`, { method: "PUT" }),
+    unreact: (targetType: ReactionTargetType, targetId: Id, reactionType: ReactionType = "like") =>
+      request<void>(`/v1/reactions/${targetType}/${targetId}/${reactionType}`, { method: "DELETE" }),
     follow: (userId: Id) => request<void>(`/v1/follows/${userId}`, { method: "PUT" }),
     unfollow: (userId: Id) => request<void>(`/v1/follows/${userId}`, { method: "DELETE" }),
     followers: (userId: Id, limit = 50) =>
