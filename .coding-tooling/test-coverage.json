@@ -3,9 +3,9 @@
   "kind": "coding-tooling-test-coverage-snapshot",
   "repository": {
     "fullName": "moritzbrantner/social-service",
-    "revision": "9eda569cc07f6b21198cc01f574e9fe7bea52e52"
+    "revision": "85ddd7069092afac6584311995694fd793c64e02"
   },
-  "generatedAt": "2026-09-13T18:34:18.000Z",
+  "generatedAt": "2026-09-13T18:50:50.000Z",
   "producer": {
     "id": "coding-tooling",
     "protocolVersion": 1
@@ -16,20 +16,20 @@
   },
   "coverage": {
     "lines": {
-      "covered": 910,
-      "total": 4354,
-      "percent": 20.9
+      "covered": 933,
+      "total": 4553,
+      "percent": 20.49
     },
     "statements": null,
     "functions": {
-      "covered": 122,
-      "total": 378,
-      "percent": 32.28
+      "covered": 126,
+      "total": 392,
+      "percent": 32.14
     },
     "branches": {
-      "covered": 25,
-      "total": 31,
-      "percent": 80.65
+      "covered": 28,
+      "total": 34,
+      "percent": 82.35
     }
   }
 }
