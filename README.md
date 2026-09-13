@@ -7,7 +7,7 @@ Reusable modular social backend for Next.js, Expo, and other applications.
 One deployable Rust/Axum service with internal modules for:
 
 - profiles and avatars/media references;
-- posts, comments, follows, private saves, and a chronological following timeline;
+- posts, tree-native comments, public reactions, follows, private saves, and a chronological following timeline;
 - first-class user blocks and private mutes through a shared safety-policy boundary;
 - first-class groups with group-local roles and an optional linked group conversation;
 - conversations, messages, media attachments, and message pins;
@@ -58,7 +58,7 @@ X-App-Id: 00000000-0000-0000-0000-000000000001
 X-User-Id: 00000000-0000-0000-0000-000000000002
 ```
 
-Public profile, post, comment-list, and follow-graph reads require `X-App-Id`; `X-User-Id` is optional for those reads and is used when checking owner and user-safety policy. A present user header is always validated. Mutating endpoints, private block/mute lists, groups, chat, and the personal timeline require both headers.
+Public profile, post, comment, reaction-summary, and follow-graph reads require `X-App-Id`; `X-User-Id` is optional for those reads and is used when checking owner, current-user reaction state, and user-safety policy. A present user header is always validated. Mutating endpoints, private block/mute lists, groups, chat, and the personal timeline require both headers.
 
 ## Visibility and user safety
 
@@ -69,12 +69,13 @@ The baseline policy is strict and deterministic:
 - public resources are readable inside the same app scope;
 - private profiles and posts are readable only by their owner;
 - comments inherit their post's visibility boundary;
+- reaction reads and writes reapply the target post/comment visibility boundary;
 - a user's follow graph can be inspected only when that user's profile is visible to the caller;
 - timelines include public followed posts plus the current user's own posts;
 - changing a profile to private does not prevent the current user from unfollowing it;
 - a block is stored directionally but creates a bilateral visibility/contact boundary between the two users;
-- blocking is idempotent and removes existing follow edges in both directions; unblocking never recreates them;
-- blocked users are filtered from profiles, posts, comments, follow-graph reads, timelines, and message/pin reads for the affected viewer;
+- blocking is idempotent and removes existing follow edges and direct cross-pair reactions; unblocking never recreates them;
+- blocked users are filtered from profiles, posts, comments, reactions, follow-graph reads, timelines, and message/pin reads for the affected viewer;
 - new conversations cannot include a blocked pair, and an existing two-person conversation becomes non-writable while either direction is blocked;
 - blocking does not silently rewrite shared group membership or destroy conversation history;
 - a mute is private and directional: it filters the muted user's posts from the muter's timeline and comments from comment lists, but does not hide direct profile/post access, sever follows, or block chat.
@@ -88,7 +89,7 @@ Groups are private membership-scoped resources. Non-members do not receive group
 Set `SOCIAL_FEATURES` to a comma-separated subset of the capabilities implemented by this deployment. The default is:
 
 ```text
-profiles,media,posts,comments,follows,saves,blocks,mutes,groups,chat
+profiles,media,posts,comments,reactions,follows,saves,blocks,mutes,groups,chat
 ```
 
 `moderation` remains separately enabled because it introduces trusted staff/service authority rather than ordinary end-user behavior.
@@ -102,11 +103,17 @@ The resolver models four layers explicitly:
 
 The current deployment-wide mode treats `SOCIAL_FEATURES` as both the deployment selection and the application request. The resolver already supports a smaller per-app requested subset without changing capability semantics; persistence/configuration of per-app selections can be added later.
 
-Required capabilities are enabled transitively instead of requiring callers to repeat them manually. For example, requesting `comments` yields effective `profiles,posts,comments`; requesting `blocks` or `mutes` yields the required `profiles` capability without forcing follows/chat; requesting `groups` yields `profiles,groups`, while chat and media remain optional integrations. Unknown capabilities, requests outside the deployment-supported maximum, and declared conflicts fail deterministically.
+Required capabilities are enabled transitively instead of requiring callers to repeat them manually. For example, requesting `comments` or `reactions` yields the required `profiles,posts` capabilities; requesting `blocks` or `mutes` yields the required `profiles` capability without forcing follows/chat; requesting `groups` yields `profiles,groups`, while chat and media remain optional integrations. Comment-target reactions additionally require the `comments` capability at the operation boundary. Unknown capabilities, requests outside the deployment-supported maximum, and declared conflicts fail deterministically.
 
 `GET /v1/features` preserves the existing `enabled` field and also exposes `implemented`, `deploymentSupported`, `appRequested`, and `effective`. `enabled` is the compatibility alias for the effective capability set.
 
 Feature flags govern behavior, not whether tables or stored data exist. Disabling a capability must not delete its data or change the stable contract. Future advanced implementations should use separate strategy settings so the minimal implementation remains permanently available. Add new capability flags only when the capability itself is implemented; do not reserve flags preemptively.
+
+## Comments and reactions
+
+Comments are tree-native. Root comments are paged separately from direct replies, parent relationships are immutable and constrained to the same app/post, and clients can recursively expand branches without requiring the server to materialize an unbounded tree. Deleting a leaf removes it; deleting a comment with descendants preserves an empty tombstone so the branch remains structurally valid.
+
+Public reactions are normalized PostgreSQL relations over visible posts and comments. The initial allowed reaction type is `like`. PUT and DELETE are idempotent, aggregate counts are derived from authoritative rows, and the current user's own reaction state is returned separately. Cached/denormalized counters are deliberately not authoritative.
 
 ## Groups
 
@@ -131,6 +138,12 @@ GET    /v1/posts/:post_id
 DELETE /v1/posts/:post_id
 GET    /v1/posts/:post_id/comments
 POST   /v1/posts/:post_id/comments
+DELETE /v1/posts/:post_id/comments/:comment_id
+GET    /v1/posts/:post_id/comments/:comment_id/replies
+POST   /v1/posts/:post_id/comments/:comment_id/replies
+GET    /v1/reactions/:target_type/:target_id
+PUT    /v1/reactions/:target_type/:target_id/:reaction_type
+DELETE /v1/reactions/:target_type/:target_id/:reaction_type
 PUT    /v1/posts/:post_id/save
 DELETE /v1/posts/:post_id/save
 GET    /v1/saved-posts
