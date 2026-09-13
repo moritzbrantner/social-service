@@ -67,7 +67,10 @@ async fn reactions_are_idempotent_visible_and_removed_across_safety_boundaries()
     }
 
     let summary = get_summary(&state, app_id, reactor_id, "post", post_id).await;
-    assert_eq!(summary["counts"], json!([{ "reactionType": "like", "count": 1 }]));
+    assert_eq!(
+        summary["counts"],
+        json!([{ "reactionType": "like", "count": 1 }])
+    );
     assert_eq!(summary["currentUserReactions"], json!(["like"]));
 
     let response = send(
@@ -81,7 +84,10 @@ async fn reactions_are_idempotent_visible_and_removed_across_safety_boundaries()
     .await;
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
     let summary = get_summary(&state, app_id, owner_id, "post", post_id).await;
-    assert_eq!(summary["counts"], json!([{ "reactionType": "like", "count": 2 }]));
+    assert_eq!(
+        summary["counts"],
+        json!([{ "reactionType": "like", "count": 2 }])
+    );
     assert_eq!(summary["currentUserReactions"], json!([]));
 
     let comment = create_comment(&state, app_id, owner_id, post_id, "root comment").await;
@@ -97,7 +103,10 @@ async fn reactions_are_idempotent_visible_and_removed_across_safety_boundaries()
     .await;
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
     let summary = get_summary(&state, app_id, reactor_id, "comment", comment_id).await;
-    assert_eq!(summary["counts"], json!([{ "reactionType": "like", "count": 1 }]));
+    assert_eq!(
+        summary["counts"],
+        json!([{ "reactionType": "like", "count": 1 }])
+    );
 
     let private_post_id =
         create_post(&state, app_id, owner_id, "private post", Some("private")).await;
@@ -153,7 +162,10 @@ async fn reactions_are_idempotent_visible_and_removed_across_safety_boundaries()
     .fetch_one(&pool)
     .await
     .expect("reaction count should load");
-    assert_eq!(remaining_pair_reactions, 0, "blocking must clear direct reactions to the blocked user's content");
+    assert_eq!(
+        remaining_pair_reactions, 0,
+        "blocking must clear direct reactions to the blocked user's content"
+    );
 
     let response = send(
         &state,
@@ -177,7 +189,10 @@ async fn reactions_are_idempotent_visible_and_removed_across_safety_boundaries()
     .await;
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
     let summary = get_summary(&state, app_id, owner_id, "post", post_id).await;
-    assert_eq!(summary["counts"], json!([{ "reactionType": "like", "count": 1 }]));
+    assert_eq!(
+        summary["counts"],
+        json!([{ "reactionType": "like", "count": 1 }])
+    );
 
     let leaf = create_comment(&state, app_id, owner_id, post_id, "leaf").await;
     let leaf_id = id(&leaf);
@@ -209,7 +224,10 @@ async fn reactions_are_idempotent_visible_and_removed_across_safety_boundaries()
     .fetch_one(&pool)
     .await
     .expect("leaf reaction count should load");
-    assert_eq!(leaf_reactions, 0, "physical comment deletion must cascade reactions");
+    assert_eq!(
+        leaf_reactions, 0,
+        "physical comment deletion must cascade reactions"
+    );
 
     let parent = create_comment(&state, app_id, owner_id, post_id, "parent").await;
     let parent_id = id(&parent);
@@ -263,7 +281,10 @@ async fn reactions_are_idempotent_visible_and_removed_across_safety_boundaries()
     .fetch_one(&pool)
     .await
     .expect("tombstone reaction count should load");
-    assert_eq!(tombstone_reactions, 0, "users must be able to remove stale reactions from hidden tombstones");
+    assert_eq!(
+        tombstone_reactions, 0,
+        "users must be able to remove stale reactions from hidden tombstones"
+    );
 
     let response = send(
         &state,
@@ -293,7 +314,10 @@ async fn reactions_are_idempotent_visible_and_removed_across_safety_boundaries()
     .fetch_one(&pool)
     .await
     .expect("post reaction count should load");
-    assert_eq!(post_reactions, 0, "post deletion must cascade its reaction graph");
+    assert_eq!(
+        post_reactions, 0,
+        "post deletion must cascade its reaction graph"
+    );
 }
 
 async fn create_post(
