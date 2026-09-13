@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
+use sqlx::{FromRow, Type};
 use uuid::Uuid;
 
 use crate::visibility::Visibility;
@@ -109,6 +109,44 @@ pub struct CreateComment {
 #[derive(Debug, Deserialize)]
 pub struct CreateReply {
     pub body: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Type)]
+#[serde(rename_all = "lowercase")]
+#[sqlx(type_name = "social_reaction_target_type", rename_all = "lowercase")]
+pub enum ReactionTargetType {
+    Post,
+    Comment,
+}
+
+impl ReactionTargetType {
+    pub const fn resource_name(self) -> &'static str {
+        match self {
+            Self::Post => "post",
+            Self::Comment => "comment",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Type)]
+#[serde(rename_all = "lowercase")]
+#[sqlx(type_name = "social_reaction_type", rename_all = "lowercase")]
+pub enum ReactionType {
+    Like,
+}
+
+#[derive(Debug, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct ReactionCount {
+    pub reaction_type: ReactionType,
+    pub count: i64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReactionSummary {
+    pub counts: Vec<ReactionCount>,
+    pub current_user_reactions: Vec<ReactionType>,
 }
 
 #[derive(Debug, Serialize, FromRow)]
