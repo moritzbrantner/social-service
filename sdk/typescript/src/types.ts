@@ -50,6 +50,19 @@ export type Comment = {
   version: number;
 };
 
+export type ReactionTargetType = "post" | "comment";
+export type ReactionType = "like";
+
+export type ReactionCount = {
+  reactionType: ReactionType;
+  count: number;
+};
+
+export type ReactionSummary = {
+  counts: ReactionCount[];
+  currentUserReactions: ReactionType[];
+};
+
 export type FollowEdge = {
   followerId: Id;
   followedId: Id;
@@ -131,6 +144,7 @@ export type Feature =
   | "media"
   | "posts"
   | "comments"
+  | "reactions"
   | "follows"
   | "saves"
   | "blocks"
