@@ -41,8 +41,10 @@ export type SavedPost = Post & {
 export type Comment = {
   id: Id;
   postId: Id;
+  parentCommentId: Id | null;
   authorId: Id;
   body: string;
+  deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
   version: number;
