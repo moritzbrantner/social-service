@@ -47,6 +47,22 @@ pub async fn block_user(
     .bind(user_id)
     .execute(&mut *transaction)
     .await?;
+    sqlx::query(
+        "DELETE FROM reactions r USING posts p WHERE r.app_id = $1 AND p.app_id = r.app_id AND p.id = r.post_id AND r.target_type = 'post' AND ((r.user_id = $2 AND p.author_id = $3) OR (r.user_id = $3 AND p.author_id = $2))",
+    )
+    .bind(context.app_id.0)
+    .bind(context.user_id.0)
+    .bind(user_id)
+    .execute(&mut *transaction)
+    .await?;
+    sqlx::query(
+        "DELETE FROM reactions r USING comments c WHERE r.app_id = $1 AND c.app_id = r.app_id AND c.id = r.comment_id AND r.target_type = 'comment' AND ((r.user_id = $2 AND c.author_id = $3) OR (r.user_id = $3 AND c.author_id = $2))",
+    )
+    .bind(context.app_id.0)
+    .bind(context.user_id.0)
+    .bind(user_id)
+    .execute(&mut *transaction)
+    .await?;
     transaction.commit().await?;
 
     Ok(StatusCode::NO_CONTENT)
