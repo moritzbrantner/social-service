@@ -59,11 +59,7 @@ pub async fn summary(
 pub async fn put_reaction(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Path((target_type, target_id, reaction_type)): Path<(
-        ReactionTargetType,
-        Uuid,
-        ReactionType,
-    )>,
+    Path((target_type, target_id, reaction_type)): Path<(ReactionTargetType, Uuid, ReactionType)>,
 ) -> Result<StatusCode, ApiError> {
     state.features.require(Feature::Reactions)?;
     let context = RequestContext::from_headers(&headers)?;
@@ -99,11 +95,7 @@ pub async fn put_reaction(
 pub async fn delete_reaction(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Path((target_type, target_id, reaction_type)): Path<(
-        ReactionTargetType,
-        Uuid,
-        ReactionType,
-    )>,
+    Path((target_type, target_id, reaction_type)): Path<(ReactionTargetType, Uuid, ReactionType)>,
 ) -> Result<StatusCode, ApiError> {
     state.features.require(Feature::Reactions)?;
     let context = RequestContext::from_headers(&headers)?;
