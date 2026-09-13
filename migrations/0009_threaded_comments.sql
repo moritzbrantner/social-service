@@ -13,7 +13,8 @@ ALTER TABLE comments
     ADD CONSTRAINT comments_parent_same_post_fkey
         FOREIGN KEY (app_id, post_id, parent_comment_id)
         REFERENCES comments(app_id, post_id, id)
-        ON DELETE RESTRICT;
+        ON DELETE NO ACTION
+        DEFERRABLE INITIALLY DEFERRED;
 
 CREATE INDEX comments_parent_created_idx
     ON comments (app_id, post_id, parent_comment_id, created_at ASC, id ASC);
