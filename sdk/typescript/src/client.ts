@@ -114,8 +114,17 @@ export function createSocialClient(options: SocialClientOptions) {
     unsavePost: (postId: Id) => request<void>(`/v1/posts/${postId}/save`, { method: "DELETE" }),
     savedPosts: (limit = 50) => request<SavedPost[]>(`/v1/saved-posts?limit=${limit}`),
     comments: (postId: Id, limit = 50) => request<Comment[]>(`/v1/posts/${postId}/comments?limit=${limit}`),
+    commentReplies: (postId: Id, commentId: Id, limit = 50) =>
+      request<Comment[]>(`/v1/posts/${postId}/comments/${commentId}/replies?limit=${limit}`),
     createComment: (postId: Id, body: string) =>
       request<Comment>(`/v1/posts/${postId}/comments`, { method: "POST", body: JSON.stringify({ body }) }),
+    replyToComment: (postId: Id, commentId: Id, body: string) =>
+      request<Comment>(`/v1/posts/${postId}/comments/${commentId}/replies`, {
+        method: "POST",
+        body: JSON.stringify({ body }),
+      }),
+    deleteComment: (postId: Id, commentId: Id) =>
+      request<void>(`/v1/posts/${postId}/comments/${commentId}`, { method: "DELETE" }),
     follow: (userId: Id) => request<void>(`/v1/follows/${userId}`, { method: "PUT" }),
     unfollow: (userId: Id) => request<void>(`/v1/follows/${userId}`, { method: "DELETE" }),
     followers: (userId: Id, limit = 50) =>
