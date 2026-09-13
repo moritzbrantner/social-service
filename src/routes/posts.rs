@@ -118,31 +118,6 @@ pub async fn create_comment(
     Ok(Json(comment))
 }
 
-pub async fn list_comments(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Path(post_id): Path<Uuid>,
-    Query(query): Query<LimitQuery>,
-) -> Result<Json<Vec<Comment>>, ApiError> {
-    state.features.require(Feature::Comments)?;
-    let app_id = app_id(&headers)?.0;
-    let viewer_id = optional_user_id(&headers)?.map(|user_id| user_id.0);
-    ensure_post_visible(&state, app_id, post_id, viewer_id).await?;
-    let comments = sqlx::query_as::<_, Comment>(
-        "SELECT c.id, c.post_id, c.author_id, c.body, c.created_at, c.updated_at, c.version FROM comments c WHERE c.app_id = $1 AND c.post_id = $2 AND ($3 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'comment' AND mcs.target_id = c.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = c.author_id AND mas.state IN ('suspended', 'banned')))) AND ($5 = FALSE OR $4 IS NULL OR NOT social_users_blocked($1, $4, c.author_id)) AND ($6 = FALSE OR $4 IS NULL OR NOT social_user_muted($1, $4, c.author_id)) ORDER BY c.created_at ASC, c.id ASC LIMIT $7",
-    )
-    .bind(app_id)
-    .bind(post_id)
-    .bind(state.features.is_enabled(Feature::Moderation))
-    .bind(viewer_id)
-    .bind(state.features.is_enabled(Feature::Blocks))
-    .bind(state.features.is_enabled(Feature::Mutes))
-    .bind(query.limit())
-    .fetch_all(&state.pool)
-    .await?;
-    Ok(Json(comments))
-}
-
 pub async fn follow_user(
     State(state): State<AppState>,
     headers: HeaderMap,

@@ -1,4 +1,5 @@
 mod chat;
+mod comments;
 mod groups;
 mod media;
 mod moderation;
@@ -10,7 +11,7 @@ mod saves;
 
 use axum::{
     Json, Router,
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
 };
 use serde::Serialize;
 
@@ -28,7 +29,15 @@ pub fn router() -> Router<AppState> {
         )
         .route(
             "/posts/{post_id}/comments",
-            get(posts::list_comments).post(posts::create_comment),
+            get(comments::list_root_comments).post(posts::create_comment),
+        )
+        .route(
+            "/posts/{post_id}/comments/{comment_id}",
+            delete(comments::delete_comment),
+        )
+        .route(
+            "/posts/{post_id}/comments/{comment_id}/replies",
+            get(comments::list_replies).post(comments::create_reply),
         )
         .route(
             "/posts/{post_id}/save",
