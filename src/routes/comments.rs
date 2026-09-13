@@ -82,13 +82,7 @@ pub async fn create_reply(
     validate_text(&input.body, 5_000, "body")?;
     let context = RequestContext::from_headers(&headers)?;
     ensure_user_can(&state, context, RestrictionScope::Comment).await?;
-    ensure_post_visible(
-        &state,
-        context.app_id.0,
-        post_id,
-        Some(context.user_id.0),
-    )
-    .await?;
+    ensure_post_visible(&state, context.app_id.0, post_id, Some(context.user_id.0)).await?;
 
     let mut transaction = state.pool.begin().await?;
     let parent = sqlx::query_scalar::<_, Uuid>(
