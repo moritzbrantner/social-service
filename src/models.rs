@@ -88,21 +88,13 @@ pub struct CreatePost {
 pub struct Comment {
     pub id: Uuid,
     pub post_id: Uuid,
-    pub author_id: Uuid,
-    pub body: String,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub version: i64,
-}
-
-#[derive(Debug, Serialize, FromRow)]
-#[serde(rename_all = "camelCase")]
-pub struct ThreadedComment {
-    pub id: Uuid,
-    pub post_id: Uuid,
+    #[sqlx(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_comment_id: Option<Uuid>,
     pub author_id: Uuid,
     pub body: String,
+    #[sqlx(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
