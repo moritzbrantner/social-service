@@ -1,5 +1,3 @@
-ALTER TYPE moderation_restriction_scope ADD VALUE IF NOT EXISTS 'reaction';
-
 CREATE TYPE social_reaction_target_type AS ENUM ('post', 'comment');
 CREATE TYPE social_reaction_type AS ENUM ('like');
 
