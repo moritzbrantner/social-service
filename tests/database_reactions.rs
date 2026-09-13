@@ -131,6 +131,18 @@ async fn reactions_are_idempotent_visible_and_removed_across_safety_boundaries()
     .await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
+    let third_post_id = create_post(&state, app_id, third_id, "third-party post", None).await;
+    let response = send(
+        &state,
+        Method::PUT,
+        &reaction_path("post", third_post_id),
+        app_id,
+        Some(reactor_id),
+        None,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+
     let response = send(
         &state,
         Method::PUT,
@@ -165,6 +177,19 @@ async fn reactions_are_idempotent_visible_and_removed_across_safety_boundaries()
     assert_eq!(
         remaining_pair_reactions, 0,
         "blocking must clear direct reactions to the blocked user's content"
+    );
+
+    let summary = get_summary(&state, app_id, owner_id, "post", third_post_id).await;
+    assert_eq!(
+        summary["counts"],
+        json!([]),
+        "a blocked actor must not contribute to the viewer's aggregate count"
+    );
+    let summary = get_summary(&state, app_id, third_id, "post", third_post_id).await;
+    assert_eq!(
+        summary["counts"],
+        json!([{ "reactionType": "like", "count": 1 }]),
+        "blocking another viewer must not delete a reaction to unrelated content"
     );
 
     let response = send(
