@@ -26,12 +26,14 @@ pub async fn summary(
     ensure_target_visible(&state, app_id, target_type, target_id, viewer_id).await?;
 
     let counts = sqlx::query_as::<_, ReactionCount>(
-        "SELECT r.reaction_type, count(*)::BIGINT AS count FROM reactions r WHERE r.app_id = $1 AND r.target_type = $2 AND r.target_id = $3 AND ($4 = FALSE OR NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = r.user_id AND mas.state IN ('suspended', 'banned'))) GROUP BY r.reaction_type ORDER BY r.reaction_type ASC",
+        "SELECT r.reaction_type, count(*)::BIGINT AS count FROM reactions r WHERE r.app_id = $1 AND r.target_type = $2 AND r.target_id = $3 AND ($4 = FALSE OR NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = r.user_id AND mas.state IN ('suspended', 'banned'))) AND ($5 = FALSE OR $6 IS NULL OR NOT social_users_blocked($1, $6, r.user_id)) GROUP BY r.reaction_type ORDER BY r.reaction_type ASC",
     )
     .bind(app_id)
     .bind(target_type)
     .bind(target_id)
     .bind(state.features.is_enabled(Feature::Moderation))
+    .bind(state.features.is_enabled(Feature::Blocks))
+    .bind(viewer_id)
     .fetch_all(&state.pool)
     .await?;
 
