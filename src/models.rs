@@ -119,15 +119,6 @@ pub enum ReactionTargetType {
     Comment,
 }
 
-impl ReactionTargetType {
-    pub const fn resource_name(self) -> &'static str {
-        match self {
-            Self::Post => "post",
-            Self::Comment => "comment",
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Type)]
 #[serde(rename_all = "lowercase")]
 #[sqlx(type_name = "social_reaction_type", rename_all = "lowercase")]
