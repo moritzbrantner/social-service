@@ -6,6 +6,7 @@ mod moderation;
 mod moderation_signals;
 mod posts;
 mod profiles;
+mod reactions;
 mod relationships;
 mod saves;
 
@@ -38,6 +39,14 @@ pub fn router() -> Router<AppState> {
         .route(
             "/posts/{post_id}/comments/{comment_id}/replies",
             get(comments::list_replies).post(comments::create_reply),
+        )
+        .route(
+            "/reactions/{target_type}/{target_id}",
+            get(reactions::summary),
+        )
+        .route(
+            "/reactions/{target_type}/{target_id}/{reaction_type}",
+            put(reactions::put_reaction).delete(reactions::delete_reaction),
         )
         .route(
             "/posts/{post_id}/save",
