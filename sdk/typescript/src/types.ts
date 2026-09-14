@@ -75,6 +75,12 @@ export type FollowRequest = {
   createdAt: string;
 };
 
+export type FollowApproval = {
+  requesterId: Id;
+  targetId: Id;
+  approvedAt: string;
+};
+
 export type UserSafetyRelationship = {
   userId: Id;
   createdAt: string;
