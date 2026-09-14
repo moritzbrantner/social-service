@@ -63,7 +63,6 @@ pub struct PostRow {
     pub author_id: Uuid,
     pub body: String,
     pub visibility: Visibility,
-    pub audience: PostAudience,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub version: i64,
@@ -74,6 +73,7 @@ pub struct PostRow {
 pub struct Post {
     #[serde(flatten)]
     pub row: PostRow,
+    pub audience: PostAudience,
     pub media_ids: Vec<Uuid>,
 }
 
