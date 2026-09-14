@@ -10,13 +10,11 @@ use crate::{
     error::ApiError,
     features::Feature,
     models::{Comment, CreateReply, LimitQuery},
-    moderation::{
-        RestrictionScope, TargetType, ensure_account_visible, ensure_content_visible,
-        ensure_user_can,
-    },
-    relationships::ensure_not_blocked,
+    moderation::{RestrictionScope, ensure_user_can},
     state::AppState,
 };
+
+use super::posts::ensure_post_visible;
 
 pub async fn list_root_comments(
     State(state): State<AppState>,
@@ -171,26 +169,6 @@ pub async fn delete_comment(
 
     transaction.commit().await?;
     Ok(StatusCode::NO_CONTENT)
-}
-
-async fn ensure_post_visible(
-    state: &AppState,
-    app_id: Uuid,
-    post_id: Uuid,
-    viewer_id: Option<Uuid>,
-) -> Result<(), ApiError> {
-    let author_id = sqlx::query_scalar::<_, Uuid>(
-        "SELECT author_id FROM posts WHERE app_id = $1 AND id = $2 AND (visibility = 'public' OR author_id = $3)",
-    )
-    .bind(app_id)
-    .bind(post_id)
-    .bind(viewer_id)
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or(ApiError::NotFound("post"))?;
-    ensure_not_blocked(state, app_id, viewer_id, author_id, "post").await?;
-    ensure_account_visible(state, app_id, author_id).await?;
-    ensure_content_visible(state, app_id, TargetType::Post, post_id, "post").await
 }
 
 async fn ensure_comment_visible(
