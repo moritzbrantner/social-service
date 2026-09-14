@@ -21,7 +21,7 @@ use crate::{
     state::AppState,
 };
 
-use super::groups::remove_non_owner_member;
+use super::{groups::remove_non_owner_member, posts::ensure_post_visible};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -883,36 +883,22 @@ async fn ensure_reportable_target(
             .fetch_one(&state.pool)
             .await?
         }
-        TargetType::Post => {
-            sqlx::query_scalar::<_, bool>(
-                "SELECT EXISTS(SELECT 1 FROM posts p WHERE p.app_id = $1 AND p.id = $2 AND (p.visibility = 'public' OR p.author_id = $3) AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.author_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'post' AND mcs.target_id = p.id AND mcs.state <> 'active'))",
-            )
-            .bind(app_id)
-            .bind(target_id)
-            .bind(reporter_id)
-            .fetch_one(&state.pool)
-            .await?
-        }
+        TargetType::Post => post_visible_to_reporter(state, app_id, target_id, reporter_id).await?,
         TargetType::Comment => {
-            sqlx::query_scalar::<_, bool>(
-                "SELECT EXISTS(SELECT 1 FROM comments c JOIN posts p ON p.app_id = c.app_id AND p.id = c.post_id WHERE c.app_id = $1 AND c.id = $2 AND (p.visibility = 'public' OR p.author_id = $3) AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.author_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = c.author_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'post' AND mcs.target_id = p.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'comment' AND mcs.target_id = c.id AND mcs.state <> 'active'))",
+            let post_id = sqlx::query_scalar::<_, Uuid>(
+                "SELECT c.post_id FROM comments c WHERE c.app_id = $1 AND c.id = $2 AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = c.author_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'comment' AND mcs.target_id = c.id AND mcs.state <> 'active')",
             )
             .bind(app_id)
             .bind(target_id)
-            .bind(reporter_id)
-            .fetch_one(&state.pool)
-            .await?
+            .fetch_optional(&state.pool)
+            .await?;
+            if let Some(post_id) = post_id {
+                post_visible_to_reporter(state, app_id, post_id, reporter_id).await?
+            } else {
+                false
+            }
         }
-        TargetType::Media => {
-            sqlx::query_scalar::<_, bool>(
-                "SELECT EXISTS(SELECT 1 FROM media_assets m WHERE m.app_id = $1 AND m.id = $2 AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'media' AND mcs.target_id = m.id AND mcs.state <> 'active') AND (m.owner_id = $3 OR EXISTS (SELECT 1 FROM post_media pm JOIN posts p ON p.app_id = pm.app_id AND p.id = pm.post_id WHERE pm.app_id = $1 AND pm.media_id = m.id AND (p.visibility = 'public' OR p.author_id = $3) AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.author_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'post' AND mcs.target_id = p.id AND mcs.state <> 'active')) OR EXISTS (SELECT 1 FROM message_media mm JOIN messages msg ON msg.app_id = mm.app_id AND msg.id = mm.message_id JOIN conversation_members cm ON cm.app_id = msg.app_id AND cm.conversation_id = msg.conversation_id AND cm.user_id = $3 WHERE mm.app_id = $1 AND mm.media_id = m.id AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = msg.author_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'conversation' AND mcs.target_id = msg.conversation_id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'message' AND mcs.target_id = msg.id AND mcs.state <> 'active'))))",
-            )
-            .bind(app_id)
-            .bind(target_id)
-            .bind(reporter_id)
-            .fetch_one(&state.pool)
-            .await?
-        }
+        TargetType::Media => media_visible_to_reporter(state, app_id, target_id, reporter_id).await?,
         TargetType::Group => {
             sqlx::query_scalar::<_, bool>(
                 "SELECT EXISTS(SELECT 1 FROM groups g JOIN group_members gm ON gm.app_id = g.app_id AND gm.group_id = g.id WHERE g.app_id = $1 AND g.id = $2 AND gm.user_id = $3 AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = g.app_id AND mcs.target_type = 'group' AND mcs.target_id = g.id AND mcs.state <> 'active'))",
@@ -950,6 +936,63 @@ async fn ensure_reportable_target(
     } else {
         Err(ApiError::NotFound("moderation target"))
     }
+}
+
+async fn post_visible_to_reporter(
+    state: &AppState,
+    app_id: Uuid,
+    post_id: Uuid,
+    reporter_id: Uuid,
+) -> Result<bool, ApiError> {
+    match ensure_post_visible(state, app_id, post_id, Some(reporter_id)).await {
+        Ok(_) => Ok(true),
+        Err(ApiError::NotFound(_)) => Ok(false),
+        Err(error) => Err(error),
+    }
+}
+
+async fn media_visible_to_reporter(
+    state: &AppState,
+    app_id: Uuid,
+    media_id: Uuid,
+    reporter_id: Uuid,
+) -> Result<bool, ApiError> {
+    let media_active = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM media_assets m WHERE m.app_id = $1 AND m.id = $2 AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'media' AND mcs.target_id = m.id AND mcs.state <> 'active'))",
+    )
+    .bind(app_id)
+    .bind(media_id)
+    .fetch_one(&state.pool)
+    .await?;
+    if !media_active {
+        return Ok(false);
+    }
+
+    let directly_visible = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM media_assets m WHERE m.app_id = $1 AND m.id = $2 AND (m.owner_id = $3 OR EXISTS (SELECT 1 FROM message_media mm JOIN messages msg ON msg.app_id = mm.app_id AND msg.id = mm.message_id JOIN conversation_members cm ON cm.app_id = msg.app_id AND cm.conversation_id = msg.conversation_id AND cm.user_id = $3 WHERE mm.app_id = $1 AND mm.media_id = m.id AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = msg.author_id AND mas.state IN ('suspended', 'banned')) AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'conversation' AND mcs.target_id = msg.conversation_id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'message' AND mcs.target_id = msg.id AND mcs.state <> 'active'))))",
+    )
+    .bind(app_id)
+    .bind(media_id)
+    .bind(reporter_id)
+    .fetch_one(&state.pool)
+    .await?;
+    if directly_visible {
+        return Ok(true);
+    }
+
+    let post_ids = sqlx::query_scalar::<_, Uuid>(
+        "SELECT post_id FROM post_media WHERE app_id = $1 AND media_id = $2 ORDER BY post_id ASC",
+    )
+    .bind(app_id)
+    .bind(media_id)
+    .fetch_all(&state.pool)
+    .await?;
+    for post_id in post_ids {
+        if post_visible_to_reporter(state, app_id, post_id, reporter_id).await? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 async fn ensure_case_matches(
