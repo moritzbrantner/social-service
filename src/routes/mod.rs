@@ -1,5 +1,6 @@
 mod chat;
 mod comments;
+mod follow_requests;
 mod groups;
 mod media;
 mod moderation;
@@ -59,6 +60,26 @@ pub fn router() -> Router<AppState> {
         )
         .route("/follows/{user_id}/followers", get(posts::followers))
         .route("/follows/{user_id}/following", get(posts::following))
+        .route(
+            "/follow-requests/incoming",
+            get(follow_requests::incoming_follow_requests),
+        )
+        .route(
+            "/follow-requests/outgoing",
+            get(follow_requests::outgoing_follow_requests),
+        )
+        .route(
+            "/follow-requests/outgoing/{user_id}",
+            put(follow_requests::request_follow).delete(follow_requests::cancel_follow_request),
+        )
+        .route(
+            "/follow-requests/incoming/{user_id}",
+            delete(follow_requests::decline_follow_request),
+        )
+        .route(
+            "/follow-requests/incoming/{user_id}/accept",
+            put(follow_requests::accept_follow_request),
+        )
         .route("/blocks", get(relationships::list_blocks))
         .route(
             "/blocks/{user_id}",
