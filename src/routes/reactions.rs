@@ -15,6 +15,8 @@ use crate::{
     state::AppState,
 };
 
+use super::posts::ensure_post_visible;
+
 pub async fn summary(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -145,35 +147,22 @@ async fn ensure_target_visible(
 ) -> Result<(), ApiError> {
     match target_type {
         ReactionTargetType::Post => {
-            let author_id = sqlx::query_scalar::<_, Uuid>(
-                "SELECT author_id FROM posts WHERE app_id = $1 AND id = $2 AND (visibility = 'public' OR author_id = $3)",
-            )
-            .bind(app_id)
-            .bind(target_id)
-            .bind(viewer_id)
-            .fetch_optional(&state.pool)
-            .await?
-            .ok_or(ApiError::NotFound("post"))?;
-            ensure_not_blocked(state, app_id, viewer_id, author_id, "post").await?;
-            ensure_account_visible(state, app_id, author_id).await?;
-            ensure_content_visible(state, app_id, TargetType::Post, target_id, "post").await
+            ensure_post_visible(state, app_id, target_id, viewer_id).await?;
+            Ok(())
         }
         ReactionTargetType::Comment => {
             state.features.require(Feature::Comments)?;
-            let target = sqlx::query_as::<_, (Uuid, Uuid, Uuid)>(
-                "SELECT c.author_id, p.author_id, c.post_id FROM comments c JOIN posts p ON p.app_id = c.app_id AND p.id = c.post_id WHERE c.app_id = $1 AND c.id = $2 AND c.deleted_at IS NULL AND (p.visibility = 'public' OR p.author_id = $3)",
+            let target = sqlx::query_as::<_, (Uuid, Uuid)>(
+                "SELECT c.author_id, c.post_id FROM comments c WHERE c.app_id = $1 AND c.id = $2 AND c.deleted_at IS NULL",
             )
             .bind(app_id)
             .bind(target_id)
-            .bind(viewer_id)
             .fetch_optional(&state.pool)
             .await?
             .ok_or(ApiError::NotFound("comment"))?;
-            ensure_not_blocked(state, app_id, viewer_id, target.1, "comment").await?;
+            ensure_post_visible(state, app_id, target.1, viewer_id).await?;
             ensure_not_blocked(state, app_id, viewer_id, target.0, "comment").await?;
-            ensure_account_visible(state, app_id, target.1).await?;
             ensure_account_visible(state, app_id, target.0).await?;
-            ensure_content_visible(state, app_id, TargetType::Post, target.2, "comment").await?;
             ensure_content_visible(state, app_id, TargetType::Comment, target_id, "comment").await
         }
     }
