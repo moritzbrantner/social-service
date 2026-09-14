@@ -104,13 +104,13 @@ pub async fn list_saved_posts(
     for row in rows {
         saved_posts.push(SavedPost {
             post: Post {
+                audience: row.audience,
                 media_ids: media_by_post.remove(&row.id).unwrap_or_default(),
                 row: PostRow {
                     id: row.id,
                     author_id: row.author_id,
                     body: row.body,
                     visibility: row.visibility,
-                    audience: row.audience,
                     created_at: row.created_at,
                     updated_at: row.updated_at,
                     version: row.version,
