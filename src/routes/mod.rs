@@ -80,6 +80,14 @@ pub fn router() -> Router<AppState> {
             "/follow-requests/incoming/{user_id}/accept",
             put(follow_requests::accept_follow_request),
         )
+        .route(
+            "/follow-approvals",
+            get(follow_requests::approved_followers),
+        )
+        .route(
+            "/follow-approvals/{user_id}",
+            delete(follow_requests::revoke_follow_approval),
+        )
         .route("/blocks", get(relationships::list_blocks))
         .route(
             "/blocks/{user_id}",
