@@ -12,7 +12,7 @@ function options(fetch) {
   };
 }
 
-test("follow request operations keep incoming and outgoing directions explicit", async () => {
+test("follow request and approval operations keep directions explicit", async () => {
   const calls = [];
   const fetch = async (input, init) => {
     calls.push({ input: String(input), init });
@@ -32,6 +32,8 @@ test("follow request operations keep incoming and outgoing directions explicit",
   await client.declineFollowRequest("user-4");
   await client.incomingFollowRequests(25);
   await client.outgoingFollowRequests(10);
+  await client.approvedFollowers(15);
+  await client.revokeFollowApproval("user-5");
 
   assert.deepEqual(
     calls.map(({ input, init }) => [input, init.method]),
@@ -42,6 +44,8 @@ test("follow request operations keep incoming and outgoing directions explicit",
       ["https://social.example/v1/follow-requests/incoming/user-4", "DELETE"],
       ["https://social.example/v1/follow-requests/incoming?limit=25", undefined],
       ["https://social.example/v1/follow-requests/outgoing?limit=10", undefined],
+      ["https://social.example/v1/follow-approvals?limit=15", undefined],
+      ["https://social.example/v1/follow-approvals/user-5", "DELETE"],
     ],
   );
 });
