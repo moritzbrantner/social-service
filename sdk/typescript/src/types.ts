@@ -69,6 +69,12 @@ export type FollowEdge = {
   createdAt: string;
 };
 
+export type FollowRequest = {
+  requesterId: Id;
+  targetId: Id;
+  createdAt: string;
+};
+
 export type UserSafetyRelationship = {
   userId: Id;
   createdAt: string;
@@ -146,6 +152,7 @@ export type Feature =
   | "comments"
   | "reactions"
   | "follows"
+  | "follow_requests"
   | "saves"
   | "blocks"
   | "mutes"
