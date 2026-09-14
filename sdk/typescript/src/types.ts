@@ -1,6 +1,7 @@
 export type Id = string;
 
 export type Visibility = "public" | "private";
+export type PostAudience = "public" | "owner_only" | "approved_followers";
 
 export type Profile = {
   userId: Id;
@@ -28,6 +29,7 @@ export type Post = {
   authorId: Id;
   body: string;
   visibility: Visibility;
+  audience: PostAudience;
   createdAt: string;
   updatedAt: string;
   version: number;
