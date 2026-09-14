@@ -15,6 +15,7 @@ import type {
   ModerationTargetType,
   PinnedMessage,
   Post,
+  PostAudience,
   Profile,
   ReactionSummary,
   ReactionTargetType,
@@ -111,8 +112,12 @@ export function createSocialClient(options: SocialClientOptions) {
     }) => request<Profile>("/v1/profiles/me", { method: "PUT", body: JSON.stringify(input) }),
     registerMedia: (input: { url: string; contentType: string }) =>
       request<MediaAsset>("/v1/media", { method: "POST", body: JSON.stringify(input) }),
-    createPost: (input: { body: string; mediaIds?: Id[]; visibility?: Visibility }) =>
-      request<Post>("/v1/posts", { method: "POST", body: JSON.stringify(input) }),
+    createPost: (input: {
+      body: string;
+      mediaIds?: Id[];
+      visibility?: Visibility;
+      audience?: PostAudience;
+    }) => request<Post>("/v1/posts", { method: "POST", body: JSON.stringify(input) }),
     post: (postId: Id) => request<Post>(`/v1/posts/${postId}`),
     deletePost: (postId: Id) => request<void>(`/v1/posts/${postId}`, { method: "DELETE" }),
     savePost: (postId: Id) => request<void>(`/v1/posts/${postId}/save`, { method: "PUT" }),
