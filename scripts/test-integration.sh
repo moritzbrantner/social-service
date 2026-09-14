@@ -22,3 +22,4 @@ cargo test --locked --test database_threaded_comments -- --ignored --nocapture
 cargo test --locked --test database_threaded_comment_cascade -- --ignored --nocapture
 cargo test --locked --test database_reactions -- --ignored --nocapture
 cargo test --locked --test database_follow_requests -- --ignored --nocapture
+cargo test --locked --test database_post_audiences -- --ignored --nocapture

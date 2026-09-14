@@ -46,6 +46,16 @@ pub struct RegisterMedia {
     pub content_type: String,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize, Type)]
+#[serde(rename_all = "snake_case")]
+#[sqlx(type_name = "social_post_audience", rename_all = "snake_case")]
+pub enum PostAudience {
+    #[default]
+    Public,
+    OwnerOnly,
+    ApprovedFollowers,
+}
+
 #[derive(Debug, Serialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct PostRow {
@@ -63,6 +73,7 @@ pub struct PostRow {
 pub struct Post {
     #[serde(flatten)]
     pub row: PostRow,
+    pub audience: PostAudience,
     pub media_ids: Vec<Uuid>,
 }
 
@@ -81,6 +92,7 @@ pub struct CreatePost {
     #[serde(default)]
     pub media_ids: Vec<Uuid>,
     pub visibility: Option<Visibility>,
+    pub audience: Option<PostAudience>,
 }
 
 #[derive(Debug, Serialize, FromRow)]

@@ -13,12 +13,12 @@ use crate::{
     auth::RequestContext,
     error::ApiError,
     features::Feature,
-    models::{LimitQuery, Post, PostRow, SavedPost},
-    moderation::{TargetType, ensure_account_visible, ensure_content_visible},
-    relationships::ensure_not_blocked,
+    models::{LimitQuery, Post, PostAudience, PostRow, SavedPost},
     state::AppState,
     visibility::Visibility,
 };
+
+use super::posts::ensure_post_visible;
 
 #[derive(FromRow)]
 struct SavedPostRecord {
@@ -26,6 +26,7 @@ struct SavedPostRecord {
     author_id: Uuid,
     body: String,
     visibility: Visibility,
+    audience: PostAudience,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     version: i64,
@@ -39,7 +40,7 @@ pub async fn save_post(
 ) -> Result<StatusCode, ApiError> {
     state.features.require(Feature::Saves)?;
     let context = RequestContext::from_headers(&headers)?;
-    ensure_saveable_post(&state, context.app_id.0, post_id, context.user_id.0).await?;
+    ensure_post_visible(&state, context.app_id.0, post_id, Some(context.user_id.0)).await?;
 
     sqlx::query(
         "INSERT INTO post_saves (app_id, user_id, post_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
@@ -79,10 +80,11 @@ pub async fn list_saved_posts(
     state.features.require(Feature::Saves)?;
     let context = RequestContext::from_headers(&headers)?;
     let rows = sqlx::query_as::<_, SavedPostRecord>(
-        "SELECT p.id, p.author_id, p.body, p.visibility, p.created_at, p.updated_at, p.version, s.created_at AS saved_at FROM post_saves s JOIN posts p ON p.app_id = s.app_id AND p.id = s.post_id WHERE s.app_id = $1 AND s.user_id = $2 AND (p.visibility = 'public' OR p.author_id = $2) AND ($3 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'post' AND mcs.target_id = p.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.author_id AND mas.state IN ('suspended', 'banned')))) AND ($4 = FALSE OR NOT social_users_blocked($1, $2, p.author_id)) ORDER BY s.created_at DESC, p.id ASC LIMIT $5",
+        "SELECT p.id, p.author_id, p.body, p.visibility, p.audience, p.created_at, p.updated_at, p.version, s.created_at AS saved_at FROM post_saves s JOIN posts p ON p.app_id = s.app_id AND p.id = s.post_id WHERE s.app_id = $1 AND s.user_id = $2 AND (p.author_id = $2 OR p.audience = 'public' OR ($3 = TRUE AND p.audience = 'approved_followers' AND EXISTS (SELECT 1 FROM follow_approvals fa WHERE fa.app_id = $1 AND fa.requester_id = $2 AND fa.target_id = p.author_id))) AND ($4 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'post' AND mcs.target_id = p.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.author_id AND mas.state IN ('suspended', 'banned')))) AND ($5 = FALSE OR NOT social_users_blocked($1, $2, p.author_id)) ORDER BY s.created_at DESC, p.id ASC LIMIT $6",
     )
     .bind(context.app_id.0)
     .bind(context.user_id.0)
+    .bind(state.features.is_enabled(Feature::FollowRequests))
     .bind(state.features.is_enabled(Feature::Moderation))
     .bind(state.features.is_enabled(Feature::Blocks))
     .bind(query.limit())
@@ -96,6 +98,7 @@ pub async fn list_saved_posts(
     for row in rows {
         saved_posts.push(SavedPost {
             post: Post {
+                audience: row.audience,
                 media_ids: media_by_post.remove(&row.id).unwrap_or_default(),
                 row: PostRow {
                     id: row.id,
@@ -137,25 +140,4 @@ async fn load_saved_post_media(
         media_by_post.entry(post_id).or_default().push(media_id);
     }
     Ok(media_by_post)
-}
-
-async fn ensure_saveable_post(
-    state: &AppState,
-    app_id: Uuid,
-    post_id: Uuid,
-    user_id: Uuid,
-) -> Result<(), ApiError> {
-    let author_id = sqlx::query_scalar::<_, Uuid>(
-        "SELECT author_id FROM posts WHERE app_id = $1 AND id = $2 AND (visibility = 'public' OR author_id = $3)",
-    )
-    .bind(app_id)
-    .bind(post_id)
-    .bind(user_id)
-    .fetch_optional(&state.pool)
-    .await?
-    .ok_or(ApiError::NotFound("post"))?;
-
-    ensure_not_blocked(state, app_id, Some(user_id), author_id, "post").await?;
-    ensure_account_visible(state, app_id, author_id).await?;
-    ensure_content_visible(state, app_id, TargetType::Post, post_id, "post").await
 }
