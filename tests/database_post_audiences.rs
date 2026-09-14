@@ -26,8 +26,10 @@ async fn approved_follower_audiences_use_durable_approval_across_post_surfaces()
 
     let state = AppState::new(
         pool.clone(),
-        FeatureSet::from_csv("posts,comments,reactions,follows,follow_requests,saves,blocks")
-            .expect("test capabilities should resolve"),
+        FeatureSet::from_csv(
+            "media,posts,comments,reactions,follows,follow_requests,saves,blocks,moderation",
+        )
+        .expect("test capabilities should resolve"),
     );
     let app_id = Uuid::new_v4();
     let alice = Uuid::new_v4();
@@ -50,6 +52,24 @@ async fn approved_follower_audiences_use_durable_approval_across_post_surfaces()
         );
     }
 
+    let media = json_body(
+        send(
+            &state,
+            Method::POST,
+            "/v1/media",
+            app_id,
+            Some(bob),
+            Some(json!({
+                "url": "https://social.example/audience.png",
+                "contentType": "image/png"
+            })),
+        )
+        .await,
+    )
+    .await;
+    let media_id = Uuid::parse_str(media["id"].as_str().expect("media id"))
+        .expect("media id should be UUID");
+
     let approved_post = json_body(
         send(
             &state,
@@ -59,7 +79,8 @@ async fn approved_follower_audiences_use_durable_approval_across_post_surfaces()
             Some(bob),
             Some(json!({
                 "body": "approved audience",
-                "audience": "approved_followers"
+                "audience": "approved_followers",
+                "mediaIds": [media_id]
             })),
         )
         .await,
@@ -180,7 +201,8 @@ async fn approved_follower_audiences_use_durable_approval_across_post_surfaces()
         .await,
     )
     .await;
-    assert!(comment["id"].is_string());
+    let comment_id = Uuid::parse_str(comment["id"].as_str().expect("comment id"))
+        .expect("comment id should be UUID");
     assert_eq!(
         send(
             &state,
@@ -239,6 +261,31 @@ async fn approved_follower_audiences_use_durable_approval_across_post_surfaces()
             .iter()
             .any(|post| post["id"] == approved_post_id.to_string())
     );
+
+    for (target_type, target_id) in [
+        ("post", approved_post_id),
+        ("comment", comment_id),
+        ("media", media_id),
+    ] {
+        assert_eq!(
+            send(
+                &state,
+                Method::POST,
+                "/v1/reports",
+                app_id,
+                Some(alice),
+                Some(json!({
+                    "targetType": target_type,
+                    "targetId": target_id,
+                    "category": "audience-reportability"
+                })),
+            )
+            .await
+            .status(),
+            StatusCode::OK,
+            "visible approved-follower {target_type} targets must remain reportable"
+        );
+    }
 
     assert_eq!(
         send(
@@ -300,6 +347,30 @@ async fn approved_follower_audiences_use_durable_approval_across_post_surfaces()
         .status(),
         StatusCode::NOT_FOUND
     );
+    for (target_type, target_id) in [
+        ("post", approved_post_id),
+        ("comment", comment_id),
+        ("media", media_id),
+    ] {
+        assert_eq!(
+            send(
+                &state,
+                Method::POST,
+                "/v1/reports",
+                app_id,
+                Some(alice),
+                Some(json!({
+                    "targetType": target_type,
+                    "targetId": target_id,
+                    "category": "revoked-audience"
+                })),
+            )
+            .await
+            .status(),
+            StatusCode::NOT_FOUND,
+            "revoked approval must remove reportability for {target_type} targets inherited from the post"
+        );
+    }
 
     let owner_only = json_body(
         send(
