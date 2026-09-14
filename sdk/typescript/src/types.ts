@@ -310,7 +310,7 @@ export type ModerationSignalQuery = {
 
 export type ModerationTargetSnapshot =
   | { type: "profile"; data: Profile }
-  | { type: "post"; data: Omit<Post, "mediaIds"> }
+  | { type: "post"; data: Omit<Post, "mediaIds" | "audience"> }
   | { type: "comment"; data: Comment }
   | { type: "media"; data: MediaAsset }
   | { type: "group"; data: Omit<Group, "members" | "chatConversationId"> }
