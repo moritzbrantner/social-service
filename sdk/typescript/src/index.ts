@@ -12,6 +12,7 @@ export type {
   Feature,
   FeatureState,
   FollowEdge,
+  FollowRequest,
   Group,
   GroupMember,
   GroupOperation,
