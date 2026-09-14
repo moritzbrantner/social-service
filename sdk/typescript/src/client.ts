@@ -2,6 +2,7 @@ import type {
   Comment,
   Conversation,
   FeatureState,
+  FollowApproval,
   FollowEdge,
   FollowRequest,
   Group,
@@ -153,6 +154,10 @@ export function createSocialClient(options: SocialClientOptions) {
       request<FollowRequest[]>(`/v1/follow-requests/incoming?limit=${limit}`),
     outgoingFollowRequests: (limit = 50) =>
       request<FollowRequest[]>(`/v1/follow-requests/outgoing?limit=${limit}`),
+    approvedFollowers: (limit = 50) =>
+      request<FollowApproval[]>(`/v1/follow-approvals?limit=${limit}`),
+    revokeFollowApproval: (userId: Id) =>
+      request<void>(`/v1/follow-approvals/${userId}`, { method: "DELETE" }),
     block: (userId: Id) => request<void>(`/v1/blocks/${userId}`, { method: "PUT" }),
     unblock: (userId: Id) => request<void>(`/v1/blocks/${userId}`, { method: "DELETE" }),
     blocks: (limit = 50) => request<UserSafetyRelationship[]>(`/v1/blocks?limit=${limit}`),
