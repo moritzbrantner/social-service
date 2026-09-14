@@ -5,6 +5,8 @@ use axum::{
     extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
 };
+use chrono::{DateTime, Utc};
+use sqlx::FromRow;
 use uuid::Uuid;
 
 use crate::{
@@ -25,6 +27,18 @@ use crate::{
 
 use super::profiles::ensure_profile_visible;
 
+#[derive(FromRow)]
+struct PostRecord {
+    id: Uuid,
+    author_id: Uuid,
+    body: String,
+    visibility: Visibility,
+    audience: PostAudience,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
+    version: i64,
+}
+
 pub async fn create_post(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -41,7 +55,7 @@ pub async fn create_post(
     let (audience, visibility) = resolve_post_audience(&state, input.visibility, input.audience)?;
 
     let mut transaction = state.pool.begin().await?;
-    let row = sqlx::query_as::<_, PostRow>(
+    let record = sqlx::query_as::<_, PostRecord>(
         "INSERT INTO posts (id, app_id, author_id, body, visibility, audience) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, author_id, body, visibility, audience, created_at, updated_at, version",
     )
     .bind(Uuid::new_v4())
@@ -57,14 +71,14 @@ pub async fn create_post(
         &mut transaction,
         context.app_id.0,
         context.user_id.0,
-        row.id,
+        record.id,
         &media_ids,
         "post_media",
         "post_id",
     )
     .await?;
     transaction.commit().await?;
-    Ok(Json(Post { row, media_ids }))
+    Ok(Json(post_from_record(record, media_ids)))
 }
 
 pub async fn get_post(
@@ -241,7 +255,7 @@ pub async fn timeline(
     state.features.require(Feature::Posts)?;
     state.features.require(Feature::Follows)?;
     let context = RequestContext::from_headers(&headers)?;
-    let rows = sqlx::query_as::<_, PostRow>(
+    let records = sqlx::query_as::<_, PostRecord>(
         "SELECT p.id, p.author_id, p.body, p.visibility, p.audience, p.created_at, p.updated_at, p.version FROM posts p WHERE p.app_id = $1 AND (p.author_id = $2 OR EXISTS (SELECT 1 FROM follows f WHERE f.app_id = $1 AND f.follower_id = $2 AND f.followed_id = p.author_id)) AND (p.author_id = $2 OR p.audience = 'public' OR ($3 = TRUE AND p.audience = 'approved_followers' AND EXISTS (SELECT 1 FROM follow_approvals fa WHERE fa.app_id = $1 AND fa.requester_id = $2 AND fa.target_id = p.author_id))) AND ($4 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'post' AND mcs.target_id = p.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.author_id AND mas.state IN ('suspended', 'banned')))) AND ($5 = FALSE OR NOT social_users_blocked($1, $2, p.author_id)) AND ($6 = FALSE OR NOT social_user_muted($1, $2, p.author_id)) ORDER BY p.created_at DESC, p.id ASC LIMIT $7",
     )
     .bind(context.app_id.0)
@@ -254,11 +268,11 @@ pub async fn timeline(
     .fetch_all(&state.pool)
     .await?;
 
-    let mut posts = Vec::with_capacity(rows.len());
-    for row in rows {
+    let mut posts = Vec::with_capacity(records.len());
+    for record in records {
         let media_ids =
-            load_media_ids(&state, context.app_id.0, "post_media", "post_id", row.id).await?;
-        posts.push(Post { row, media_ids });
+            load_media_ids(&state, context.app_id.0, "post_media", "post_id", record.id).await?;
+        posts.push(post_from_record(record, media_ids));
     }
     Ok(Json(posts))
 }
@@ -269,7 +283,7 @@ async fn load_post(
     post_id: Uuid,
     viewer_id: Option<Uuid>,
 ) -> Result<Post, ApiError> {
-    let row = sqlx::query_as::<_, PostRow>(
+    let record = sqlx::query_as::<_, PostRecord>(
         "SELECT id, author_id, body, visibility, audience, created_at, updated_at, version FROM posts WHERE app_id = $1 AND id = $2",
     )
     .bind(app_id)
@@ -277,9 +291,9 @@ async fn load_post(
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound("post"))?;
-    ensure_post_row_visible(state, app_id, post_id, &row, viewer_id).await?;
+    ensure_post_record_visible(state, app_id, post_id, &record, viewer_id).await?;
     let media_ids = load_media_ids(state, app_id, "post_media", "post_id", post_id).await?;
-    Ok(Post { row, media_ids })
+    Ok(post_from_record(record, media_ids))
 }
 
 pub(crate) async fn ensure_post_visible(
@@ -303,16 +317,16 @@ pub(crate) async fn ensure_post_visible(
     Ok(target.0)
 }
 
-async fn ensure_post_row_visible(
+async fn ensure_post_record_visible(
     state: &AppState,
     app_id: Uuid,
     post_id: Uuid,
-    row: &PostRow,
+    record: &PostRecord,
     viewer_id: Option<Uuid>,
 ) -> Result<(), ApiError> {
-    ensure_post_audience(state, app_id, row.author_id, row.audience, viewer_id).await?;
-    ensure_not_blocked(state, app_id, viewer_id, row.author_id, "post").await?;
-    ensure_account_visible(state, app_id, row.author_id).await?;
+    ensure_post_audience(state, app_id, record.author_id, record.audience, viewer_id).await?;
+    ensure_not_blocked(state, app_id, viewer_id, record.author_id, "post").await?;
+    ensure_account_visible(state, app_id, record.author_id).await?;
     ensure_content_visible(state, app_id, TargetType::Post, post_id, "post").await
 }
 
@@ -370,6 +384,22 @@ fn resolve_post_audience(
         ));
     }
     Ok((audience, projected_visibility))
+}
+
+fn post_from_record(record: PostRecord, media_ids: Vec<Uuid>) -> Post {
+    Post {
+        audience: record.audience,
+        media_ids,
+        row: PostRow {
+            id: record.id,
+            author_id: record.author_id,
+            body: record.body,
+            visibility: record.visibility,
+            created_at: record.created_at,
+            updated_at: record.updated_at,
+            version: record.version,
+        },
+    }
 }
 
 pub(crate) async fn load_media_ids(
