@@ -40,13 +40,7 @@ pub async fn save_post(
 ) -> Result<StatusCode, ApiError> {
     state.features.require(Feature::Saves)?;
     let context = RequestContext::from_headers(&headers)?;
-    ensure_post_visible(
-        &state,
-        context.app_id.0,
-        post_id,
-        Some(context.user_id.0),
-    )
-    .await?;
+    ensure_post_visible(&state, context.app_id.0, post_id, Some(context.user_id.0)).await?;
 
     sqlx::query(
         "INSERT INTO post_saves (app_id, user_id, post_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
