@@ -55,16 +55,7 @@ async fn follow_requests_are_explicit_idempotent_and_separate_from_visibility() 
 
     for _ in 0..2 {
         assert_eq!(
-            send(
-                &state,
-                Method::PUT,
-                &format!("/v1/follow-requests/outgoing/{bob}"),
-                app_id,
-                alice,
-                None,
-            )
-            .await
-            .status(),
+            request_follow(&state, app_id, alice, bob).await.status(),
             StatusCode::NO_CONTENT,
             "requesting the same follow must be idempotent"
         );
@@ -104,41 +95,46 @@ async fn follow_requests_are_explicit_idempotent_and_separate_from_visibility() 
         0,
         "a pending request is not a follow edge"
     );
+    assert_eq!(approval_count(&state, app_id, alice, bob).await, 0);
 
     for _ in 0..2 {
         assert_eq!(
-            send(
-                &state,
-                Method::PUT,
-                &format!("/v1/follow-requests/incoming/{alice}/accept"),
-                app_id,
-                bob,
-                None,
-            )
-            .await
-            .status(),
+            accept_follow(&state, app_id, bob, alice).await.status(),
             StatusCode::NO_CONTENT,
-            "acceptance must remain idempotent after the follow exists"
+            "acceptance must remain idempotent after durable approval exists"
         );
     }
     assert_eq!(follow_count(&state, app_id, alice, bob).await, 1);
-    assert!(
-        json_body(
-            send(
-                &state,
-                Method::GET,
-                "/v1/follow-requests/incoming",
-                app_id,
-                bob,
-                None,
-            )
-            .await,
-        )
-        .await
-        .as_array()
-        .expect("incoming requests")
-        .is_empty()
+    assert_eq!(
+        approval_count(&state, app_id, alice, bob).await,
+        1,
+        "accepted consent must remain distinguishable from the follow edge"
     );
+    assert_eq!(pending_count(&state, app_id, alice, bob).await, 0);
+
+    let approvals = json_body(
+        send(
+            &state,
+            Method::GET,
+            "/v1/follow-approvals",
+            app_id,
+            bob,
+            None,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(approvals.as_array().expect("approvals").len(), 1);
+    assert_eq!(approvals[0]["requesterId"], alice.to_string());
+    assert_eq!(approvals[0]["targetId"], bob.to_string());
+    assert!(approvals[0]["approvedAt"].is_string());
+
+    assert_eq!(
+        request_follow(&state, app_id, alice, bob).await.status(),
+        StatusCode::NO_CONTENT,
+        "an already approved relationship must not recreate a pending request"
+    );
+    assert_eq!(pending_count(&state, app_id, alice, bob).await, 0);
 
     let private_post = create_post(&state, app_id, bob, "private post", "private").await;
     assert_eq!(
@@ -169,18 +165,8 @@ async fn follow_requests_are_explicit_idempotent_and_separate_from_visibility() 
         StatusCode::NOT_FOUND,
         "approval must not silently become post authorization"
     );
-    let timeline = json_body(
-        send(
-            &state,
-            Method::GET,
-            "/v1/timeline",
-            app_id,
-            alice,
-            None,
-        )
-        .await,
-    )
-    .await;
+    let timeline =
+        json_body(send(&state, Method::GET, "/v1/timeline", app_id, alice, None).await).await;
     assert!(
         !timeline
             .as_array()
@@ -192,14 +178,90 @@ async fn follow_requests_are_explicit_idempotent_and_separate_from_visibility() 
     assert_eq!(
         send(
             &state,
-            Method::PUT,
-            &format!("/v1/follow-requests/outgoing/{carol}"),
+            Method::DELETE,
+            &format!("/v1/follows/{bob}"),
             app_id,
             alice,
             None,
         )
         .await
         .status(),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(follow_count(&state, app_id, alice, bob).await, 0);
+    assert_eq!(
+        approval_count(&state, app_id, alice, bob).await,
+        0,
+        "unfollowing must invalidate approval so a later follow requires fresh consent"
+    );
+
+    assert_eq!(
+        send(
+            &state,
+            Method::PUT,
+            &format!("/v1/follows/{alice}"),
+            app_id,
+            carol,
+            None,
+        )
+        .await
+        .status(),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(follow_count(&state, app_id, carol, alice).await, 1);
+    assert_eq!(approval_count(&state, app_id, carol, alice).await, 0);
+    assert_eq!(
+        accept_follow(&state, app_id, alice, carol).await.status(),
+        StatusCode::NOT_FOUND,
+        "a unilateral public follow must never masquerade as an approved request"
+    );
+
+    assert_eq!(
+        request_follow(&state, app_id, carol, alice).await.status(),
+        StatusCode::NO_CONTENT,
+        "approval may be requested even when an ordinary follow edge already exists"
+    );
+    assert_eq!(
+        accept_follow(&state, app_id, alice, carol).await.status(),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(approval_count(&state, app_id, carol, alice).await, 1);
+    assert_eq!(
+        send(
+            &state,
+            Method::DELETE,
+            &format!("/v1/follow-approvals/{carol}"),
+            app_id,
+            alice,
+            None,
+        )
+        .await
+        .status(),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(approval_count(&state, app_id, carol, alice).await, 0);
+    assert_eq!(
+        follow_count(&state, app_id, carol, alice).await,
+        0,
+        "revoking approval must remove the approved follow edge"
+    );
+    assert_eq!(
+        send(
+            &state,
+            Method::DELETE,
+            &format!("/v1/follow-approvals/{carol}"),
+            app_id,
+            alice,
+            None,
+        )
+        .await
+        .status(),
+        StatusCode::NO_CONTENT,
+        "revoking an already absent approval must be idempotent"
+    );
+
+    assert_eq!(
+        request_follow(&state, app_id, alice, carol).await.status(),
         StatusCode::NO_CONTENT
     );
     for _ in 0..2 {
@@ -220,57 +282,28 @@ async fn follow_requests_are_explicit_idempotent_and_separate_from_visibility() 
     }
 
     assert_eq!(
-        send(
-            &state,
-            Method::PUT,
-            &format!("/v1/follow-requests/outgoing/{bob}"),
-            app_id,
-            carol,
-            None,
-        )
-        .await
-        .status(),
+        request_follow(&state, app_id, carol, bob).await.status(),
         StatusCode::NO_CONTENT
     );
-    assert_eq!(
-        send(
-            &state,
-            Method::DELETE,
-            &format!("/v1/follow-requests/incoming/{carol}"),
-            app_id,
-            bob,
-            None,
-        )
-        .await
-        .status(),
-        StatusCode::NO_CONTENT
-    );
-    assert_eq!(
-        send(
-            &state,
-            Method::DELETE,
-            &format!("/v1/follow-requests/incoming/{carol}"),
-            app_id,
-            bob,
-            None,
-        )
-        .await
-        .status(),
-        StatusCode::NO_CONTENT,
-        "declining a request must be idempotent"
-    );
+    for _ in 0..2 {
+        assert_eq!(
+            send(
+                &state,
+                Method::DELETE,
+                &format!("/v1/follow-requests/incoming/{carol}"),
+                app_id,
+                bob,
+                None,
+            )
+            .await
+            .status(),
+            StatusCode::NO_CONTENT,
+            "declining a request must be idempotent"
+        );
+    }
 
     assert_eq!(
-        send(
-            &state,
-            Method::PUT,
-            &format!("/v1/follow-requests/outgoing/{bob}"),
-            app_id,
-            carol,
-            None,
-        )
-        .await
-        .status(),
+        request_follow(&state, app_id, carol, bob).await.status(),
         StatusCode::NO_CONTENT
     );
     assert_eq!(pending_count(&state, app_id, carol, bob).await, 1);
@@ -293,31 +326,13 @@ async fn follow_requests_are_explicit_idempotent_and_separate_from_visibility() 
         "blocking must remove pending requests in either direction"
     );
     assert_eq!(
-        send(
-            &state,
-            Method::PUT,
-            &format!("/v1/follow-requests/outgoing/{bob}"),
-            app_id,
-            carol,
-            None,
-        )
-        .await
-        .status(),
+        request_follow(&state, app_id, carol, bob).await.status(),
         StatusCode::NOT_FOUND,
         "a block must prevent new follow requests"
     );
 
     assert_eq!(
-        send(
-            &state,
-            Method::PUT,
-            &format!("/v1/follow-requests/outgoing/{alice}"),
-            app_id,
-            alice,
-            None,
-        )
-        .await
-        .status(),
+        request_follow(&state, app_id, alice, alice).await.status(),
         StatusCode::BAD_REQUEST
     );
 }
@@ -365,6 +380,30 @@ async fn create_post(
     Uuid::parse_str(body["id"].as_str().expect("post id")).expect("post id should be UUID")
 }
 
+async fn request_follow(state: &AppState, app_id: Uuid, requester: Uuid, target: Uuid) -> Response {
+    send(
+        state,
+        Method::PUT,
+        &format!("/v1/follow-requests/outgoing/{target}"),
+        app_id,
+        requester,
+        None,
+    )
+    .await
+}
+
+async fn accept_follow(state: &AppState, app_id: Uuid, target: Uuid, requester: Uuid) -> Response {
+    send(
+        state,
+        Method::PUT,
+        &format!("/v1/follow-requests/incoming/{requester}/accept"),
+        app_id,
+        target,
+        None,
+    )
+    .await
+}
+
 async fn follow_count(state: &AppState, app_id: Uuid, follower: Uuid, followed: Uuid) -> i64 {
     sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM follows WHERE app_id = $1 AND follower_id = $2 AND followed_id = $3",
@@ -387,6 +426,18 @@ async fn pending_count(state: &AppState, app_id: Uuid, requester: Uuid, target: 
     .fetch_one(&state.pool)
     .await
     .expect("follow request count")
+}
+
+async fn approval_count(state: &AppState, app_id: Uuid, requester: Uuid, target: Uuid) -> i64 {
+    sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM follow_approvals WHERE app_id = $1 AND requester_id = $2 AND target_id = $3",
+    )
+    .bind(app_id)
+    .bind(requester)
+    .bind(target)
+    .fetch_one(&state.pool)
+    .await
+    .expect("follow approval count")
 }
 
 async fn json_body(response: Response) -> Value {
