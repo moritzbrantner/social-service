@@ -67,8 +67,8 @@ async fn approved_follower_audiences_use_durable_approval_across_post_surfaces()
         .await,
     )
     .await;
-    let media_id = Uuid::parse_str(media["id"].as_str().expect("media id"))
-        .expect("media id should be UUID");
+    let media_id =
+        Uuid::parse_str(media["id"].as_str().expect("media id")).expect("media id should be UUID");
 
     let approved_post = json_body(
         send(
