@@ -150,6 +150,22 @@ pub struct FollowEdge {
 
 #[derive(Debug, Serialize, FromRow)]
 #[serde(rename_all = "camelCase")]
+pub struct FollowRequest {
+    pub requester_id: Uuid,
+    pub target_id: Uuid,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct FollowApproval {
+    pub requester_id: Uuid,
+    pub target_id: Uuid,
+    pub approved_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct UserSafetyRelationship {
     pub user_id: Uuid,
     pub created_at: DateTime<Utc>,

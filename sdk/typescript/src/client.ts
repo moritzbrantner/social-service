@@ -2,7 +2,9 @@ import type {
   Comment,
   Conversation,
   FeatureState,
+  FollowApproval,
   FollowEdge,
+  FollowRequest,
   Group,
   GroupOperation,
   GroupRole,
@@ -140,6 +142,22 @@ export function createSocialClient(options: SocialClientOptions) {
       request<FollowEdge[]>(`/v1/follows/${userId}/followers?limit=${limit}`),
     following: (userId: Id, limit = 50) =>
       request<FollowEdge[]>(`/v1/follows/${userId}/following?limit=${limit}`),
+    requestFollow: (userId: Id) =>
+      request<void>(`/v1/follow-requests/outgoing/${userId}`, { method: "PUT" }),
+    cancelFollowRequest: (userId: Id) =>
+      request<void>(`/v1/follow-requests/outgoing/${userId}`, { method: "DELETE" }),
+    acceptFollowRequest: (userId: Id) =>
+      request<void>(`/v1/follow-requests/incoming/${userId}/accept`, { method: "PUT" }),
+    declineFollowRequest: (userId: Id) =>
+      request<void>(`/v1/follow-requests/incoming/${userId}`, { method: "DELETE" }),
+    incomingFollowRequests: (limit = 50) =>
+      request<FollowRequest[]>(`/v1/follow-requests/incoming?limit=${limit}`),
+    outgoingFollowRequests: (limit = 50) =>
+      request<FollowRequest[]>(`/v1/follow-requests/outgoing?limit=${limit}`),
+    approvedFollowers: (limit = 50) =>
+      request<FollowApproval[]>(`/v1/follow-approvals?limit=${limit}`),
+    revokeFollowApproval: (userId: Id) =>
+      request<void>(`/v1/follow-approvals/${userId}`, { method: "DELETE" }),
     block: (userId: Id) => request<void>(`/v1/blocks/${userId}`, { method: "PUT" }),
     unblock: (userId: Id) => request<void>(`/v1/blocks/${userId}`, { method: "DELETE" }),
     blocks: (limit = 50) => request<UserSafetyRelationship[]>(`/v1/blocks?limit=${limit}`),
