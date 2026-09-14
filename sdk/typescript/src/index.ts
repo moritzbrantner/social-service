@@ -11,6 +11,7 @@ export type {
   CreateModerationSignalInput,
   Feature,
   FeatureState,
+  FollowApproval,
   FollowEdge,
   FollowRequest,
   Group,
