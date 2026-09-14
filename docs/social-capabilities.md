@@ -31,6 +31,16 @@ The minimal reaction can be `like`. The model should leave room for an applicati
 
 Keep simple counts as PostgreSQL aggregates first. Denormalized counters or cached aggregates are later read optimizations and must not become the source of truth.
 
+## Follow requests and approvals
+
+`follow_requests` is the explicit consent capability layered beside the ordinary directional `follows` graph. A pending request and a follow edge are different facts, and an accepted approval remains a separately stored fact rather than being inferred from the presence of a follow.
+
+The minimal implementation uses app-scoped PostgreSQL `follow_requests` and `follow_approvals` relations. Request/cancel/accept/decline/revoke operations are idempotent. Acceptance atomically creates the normal requester-to-target follow edge and a durable approval row. Existing public unilateral follows do not count as approval, but a user who already follows can still request explicit approval.
+
+Approval is tied to the current follow edge: unfollowing cascades the approval away, and the target may explicitly revoke approval, which removes the approved follow edge. Blocking uses the same user-pair serialization boundary, removes pending requests in both directions, and removes approvals through follow-edge cleanup. Unblocking never reconstructs requests, approvals, or follows.
+
+The capability deliberately does **not** broaden the baseline `private` visibility rule. Private profiles and posts remain owner-only. This preserves a clean future boundary: an audience capability may later compose with explicit approval without redefining unilateral follows or retroactively changing existing private semantics.
+
 ## Saves / bookmarks / stars
 
 A private "star", bookmark, or saved-post action is not the same concept as a public reaction. Model it as a private per-user save/favorite relation. Other users should not infer it from reaction APIs or counts.
@@ -57,11 +67,11 @@ A repost/reshare is social content structure, not merely a reaction. If introduc
 
 ## Blocks and mutes
 
-`blocks` and `mutes` are implemented first-class capabilities backed by app-scoped PostgreSQL relationships and shared policy predicates. They remain distinct from follows, moderation, group roles, and each other.
+`blocks` and `mutes` are implemented first-class capabilities backed by app-scoped PostgreSQL relationships and shared policy predicates. They remain distinct from follows, follow requests/approvals, moderation, group roles, and each other.
 
 A block is stored as a directional user action, but enforcement is intentionally bilateral between the two users. Profile/post access, follow operations and follow-graph reads, timelines, comment lists, and message/pin reads apply the same block predicate. Creating a conversation containing a blocked pair is rejected. Existing non-group two-person conversations become non-writable while a block exists, while history is retained. Group-linked conversations keep group semantics even when membership later shrinks to two people.
 
-Blocking removes existing follow edges in both directions in the same transaction. Unblocking is idempotent and never reconstructs those social relationships. Blocking does not silently remove either user from a shared group or destroy conversation history. The public API exposes only the current user's outgoing block list; it does not provide a "who blocked me" oracle.
+Blocking removes existing follow edges in both directions and pending follow requests in both directions in the same user-pair transaction; approval rows disappear with their approved follow edges. Unblocking is idempotent and never reconstructs those social relationships. Blocking does not silently remove either user from a shared group or destroy conversation history. The public API exposes only the current user's outgoing block list; it does not provide a "who blocked me" oracle.
 
 A mute is directional and private. It filters the muted user's authored content from the muter's derived timeline and comment-list views, but it does not sever follows, hide direct profile/post access, prevent chat, affect the muted person's view, or grant moderation authority. Unmuting simply restores those derived reads.
 
@@ -78,6 +88,8 @@ Notification delivery itself (push, email, SMS, digest scheduling) is a broader 
 Do not merge concepts merely because they use similar UI controls:
 
 - like/love/laugh/etc. -> public **reaction**;
+- unilateral follow -> directional **follow edge**;
+- accepted follow request -> separate durable **follow approval** plus its follow edge;
 - bookmark/private star -> private **save**;
 - 1-5 stars -> **rating**;
 - upvote/downvote -> **vote**;
