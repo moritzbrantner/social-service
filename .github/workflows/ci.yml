@@ -58,6 +58,7 @@ jobs:
       - run: cargo test --locked --test database_threaded_comment_cascade -- --ignored --nocapture
       - run: cargo test --locked --test database_reactions -- --ignored --nocapture
       - run: cargo test --locked --test database_follow_requests -- --ignored --nocapture
+      - run: cargo test --locked --test database_post_audiences -- --ignored --nocapture
 
   typescript:
     runs-on: ubuntu-24.04
