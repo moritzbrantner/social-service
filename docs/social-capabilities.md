@@ -37,15 +37,31 @@ Keep simple counts as PostgreSQL aggregates first. Denormalized counters or cach
 
 The minimal implementation uses app-scoped PostgreSQL `follow_requests` and `follow_approvals` relations. Request/cancel/accept/decline/revoke operations are idempotent. Acceptance atomically creates the normal requester-to-target follow edge and a durable approval row. Existing public unilateral follows do not count as approval, but a user who already follows can still request explicit approval.
 
-Approval is tied to the current follow edge: unfollowing cascades the approval away, and the target may explicitly revoke approval, which removes the approved follow edge. Blocking uses the same user-pair serialization boundary, removes pending requests in both directions, and removes approvals through follow-edge cleanup. Unblocking never reconstructs requests, approvals, or follows.
+Approval is tied to the current follow edge: unfollowing cascades the approval away and cancels any same-direction pending request, while the target may explicitly revoke approval, which removes the approved follow edge. Blocking uses the same user-pair serialization boundary, removes pending requests in both directions, and removes approvals through follow-edge cleanup. Unblocking never reconstructs requests, approvals, or follows.
 
-The capability deliberately does **not** broaden the baseline `private` visibility rule. Private profiles and posts remain owner-only. This preserves a clean future boundary: an audience capability may later compose with explicit approval without redefining unilateral follows or retroactively changing existing private semantics.
+Approval does **not** redefine profile privacy. Private profiles remain owner-only. Instead, post audiences may explicitly opt into approved-follower access as a separate post-level policy.
+
+## Post audiences
+
+Posts use an explicit audience policy with three stable values:
+
+- `public` — readable without a user identity inside the app scope, subject to block/moderation policy where a viewer exists;
+- `owner_only` — readable only by the author;
+- `approved_followers` — readable by the author and users with a current durable `follow_approvals` relationship to that author.
+
+The ordinary unilateral `follows` relation is never enough to satisfy `approved_followers`. Access is derived only from the durable approval relation created by the follow-request flow. Revoking approval, unfollowing, or blocking therefore removes audience access immediately without rewriting the post.
+
+The existing post `visibility` field is retained as a compatibility projection, not as a second policy authority. `public` audience projects to `visibility=public`; both `owner_only` and `approved_followers` project to `visibility=private`. Legacy create-post requests containing only `visibility=private` continue to mean owner-only. Conflicting `visibility` and `audience` inputs are rejected.
+
+Approved-follower reads fail closed when the `follow_requests` capability is disabled, while the post author always retains access. Every derived surface that exposes post content—timeline, comments, reactions, and saved-post reads—must reapply the current audience relation rather than trusting stale cached visibility or a previously valid save/reaction.
+
+Profile `public | private` visibility remains unchanged and independent from post audiences.
 
 ## Saves / bookmarks / stars
 
 A private "star", bookmark, or saved-post action is not the same concept as a public reaction. Model it as a private per-user save/favorite relation. Other users should not infer it from reaction APIs or counts.
 
-The minimal post-save capability is implemented as `saves`. Saving and unsaving are idempotent. Saved-post reads are private to the current user, retain the time the post was saved, and reapply the post's current visibility and moderation boundaries before returning content. Removing a save does not require the post to remain visible, so a user can always clean up a stale private relation.
+The minimal post-save capability is implemented as `saves`. Saving and unsaving are idempotent. Saved-post reads are private to the current user, retain the time the post was saved, and reapply the post's current audience, visibility-compatibility, moderation, and safety boundaries before returning content. Removing a save does not require the post to remain visible, so a user can always clean up a stale private relation.
 
 If a product later needs a 1-5 star score, model that separately as a **rating**. Do not overload the same `star` concept for both bookmarks and numeric ratings.
 
@@ -90,6 +106,7 @@ Do not merge concepts merely because they use similar UI controls:
 - like/love/laugh/etc. -> public **reaction**;
 - unilateral follow -> directional **follow edge**;
 - accepted follow request -> separate durable **follow approval** plus its follow edge;
+- approved-followers post -> explicit **post audience** consulting durable approval;
 - bookmark/private star -> private **save**;
 - 1-5 stars -> **rating**;
 - upvote/downvote -> **vote**;
