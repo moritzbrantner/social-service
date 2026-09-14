@@ -39,6 +39,7 @@ export type {
   ModerationTargetType,
   PinnedMessage,
   Post,
+  PostAudience,
   Profile,
   SavedPost,
   UserModeration,
