@@ -11,13 +11,16 @@ use crate::{
     auth::{RequestContext, app_id, optional_user_id},
     error::ApiError,
     features::Feature,
-    models::{Comment, CreateComment, CreatePost, FollowEdge, LimitQuery, Post, PostRow},
+    models::{
+        Comment, CreateComment, CreatePost, FollowEdge, LimitQuery, Post, PostAudience, PostRow,
+    },
     moderation::{
         RestrictionScope, TargetType, ensure_account_visible, ensure_content_visible,
         ensure_user_can,
     },
     relationships::{ensure_not_blocked, lock_user_pair, users_are_blocked_in_transaction},
     state::AppState,
+    visibility::Visibility,
 };
 
 use super::profiles::ensure_profile_visible;
@@ -35,16 +38,18 @@ pub async fn create_post(
     if !media_ids.is_empty() {
         state.features.require(Feature::Media)?;
     }
+    let (audience, visibility) = resolve_post_audience(&state, input.visibility, input.audience)?;
 
     let mut transaction = state.pool.begin().await?;
     let row = sqlx::query_as::<_, PostRow>(
-        "INSERT INTO posts (id, app_id, author_id, body, visibility) VALUES ($1, $2, $3, $4, COALESCE($5, 'public'::social_visibility)) RETURNING id, author_id, body, visibility, created_at, updated_at, version",
+        "INSERT INTO posts (id, app_id, author_id, body, visibility, audience) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, author_id, body, visibility, audience, created_at, updated_at, version",
     )
     .bind(Uuid::new_v4())
     .bind(context.app_id.0)
     .bind(context.user_id.0)
     .bind(input.body.trim())
-    .bind(input.visibility)
+    .bind(visibility)
+    .bind(audience)
     .fetch_one(&mut *transaction)
     .await?;
 
@@ -237,10 +242,11 @@ pub async fn timeline(
     state.features.require(Feature::Follows)?;
     let context = RequestContext::from_headers(&headers)?;
     let rows = sqlx::query_as::<_, PostRow>(
-        "SELECT p.id, p.author_id, p.body, p.visibility, p.created_at, p.updated_at, p.version FROM posts p WHERE p.app_id = $1 AND (p.author_id = $2 OR EXISTS (SELECT 1 FROM follows f WHERE f.app_id = $1 AND f.follower_id = $2 AND f.followed_id = p.author_id)) AND (p.visibility = 'public' OR p.author_id = $2) AND ($3 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'post' AND mcs.target_id = p.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.author_id AND mas.state IN ('suspended', 'banned')))) AND ($4 = FALSE OR NOT social_users_blocked($1, $2, p.author_id)) AND ($5 = FALSE OR NOT social_user_muted($1, $2, p.author_id)) ORDER BY p.created_at DESC, p.id ASC LIMIT $6",
+        "SELECT p.id, p.author_id, p.body, p.visibility, p.audience, p.created_at, p.updated_at, p.version FROM posts p WHERE p.app_id = $1 AND (p.author_id = $2 OR EXISTS (SELECT 1 FROM follows f WHERE f.app_id = $1 AND f.follower_id = $2 AND f.followed_id = p.author_id)) AND (p.author_id = $2 OR p.audience = 'public' OR ($3 = TRUE AND p.audience = 'approved_followers' AND EXISTS (SELECT 1 FROM follow_approvals fa WHERE fa.app_id = $1 AND fa.requester_id = $2 AND fa.target_id = p.author_id))) AND ($4 = FALSE OR (NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'post' AND mcs.target_id = p.id AND mcs.state <> 'active') AND NOT EXISTS (SELECT 1 FROM moderation_account_states mas WHERE mas.app_id = $1 AND mas.user_id = p.author_id AND mas.state IN ('suspended', 'banned')))) AND ($5 = FALSE OR NOT social_users_blocked($1, $2, p.author_id)) AND ($6 = FALSE OR NOT social_user_muted($1, $2, p.author_id)) ORDER BY p.created_at DESC, p.id ASC LIMIT $7",
     )
     .bind(context.app_id.0)
     .bind(context.user_id.0)
+    .bind(state.features.is_enabled(Feature::FollowRequests))
     .bind(state.features.is_enabled(Feature::Moderation))
     .bind(state.features.is_enabled(Feature::Blocks))
     .bind(state.features.is_enabled(Feature::Mutes))
@@ -264,39 +270,106 @@ async fn load_post(
     viewer_id: Option<Uuid>,
 ) -> Result<Post, ApiError> {
     let row = sqlx::query_as::<_, PostRow>(
-        "SELECT id, author_id, body, visibility, created_at, updated_at, version FROM posts WHERE app_id = $1 AND id = $2 AND (visibility = 'public' OR author_id = $3)",
+        "SELECT id, author_id, body, visibility, audience, created_at, updated_at, version FROM posts WHERE app_id = $1 AND id = $2",
     )
     .bind(app_id)
     .bind(post_id)
-    .bind(viewer_id)
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound("post"))?;
-    ensure_not_blocked(state, app_id, viewer_id, row.author_id, "post").await?;
-    ensure_account_visible(state, app_id, row.author_id).await?;
-    ensure_content_visible(state, app_id, TargetType::Post, post_id, "post").await?;
+    ensure_post_row_visible(state, app_id, post_id, &row, viewer_id).await?;
     let media_ids = load_media_ids(state, app_id, "post_media", "post_id", post_id).await?;
     Ok(Post { row, media_ids })
 }
 
-async fn ensure_post_visible(
+pub(crate) async fn ensure_post_visible(
     state: &AppState,
     app_id: Uuid,
     post_id: Uuid,
     viewer_id: Option<Uuid>,
-) -> Result<(), ApiError> {
-    let author_id = sqlx::query_scalar::<_, Uuid>(
-        "SELECT author_id FROM posts WHERE app_id = $1 AND id = $2 AND (visibility = 'public' OR author_id = $3)",
+) -> Result<Uuid, ApiError> {
+    let target = sqlx::query_as::<_, (Uuid, PostAudience)>(
+        "SELECT author_id, audience FROM posts WHERE app_id = $1 AND id = $2",
     )
     .bind(app_id)
     .bind(post_id)
-    .bind(viewer_id)
     .fetch_optional(&state.pool)
     .await?
     .ok_or(ApiError::NotFound("post"))?;
-    ensure_not_blocked(state, app_id, viewer_id, author_id, "post").await?;
-    ensure_account_visible(state, app_id, author_id).await?;
+    ensure_post_audience(state, app_id, target.0, target.1, viewer_id).await?;
+    ensure_not_blocked(state, app_id, viewer_id, target.0, "post").await?;
+    ensure_account_visible(state, app_id, target.0).await?;
+    ensure_content_visible(state, app_id, TargetType::Post, post_id, "post").await?;
+    Ok(target.0)
+}
+
+async fn ensure_post_row_visible(
+    state: &AppState,
+    app_id: Uuid,
+    post_id: Uuid,
+    row: &PostRow,
+    viewer_id: Option<Uuid>,
+) -> Result<(), ApiError> {
+    ensure_post_audience(state, app_id, row.author_id, row.audience, viewer_id).await?;
+    ensure_not_blocked(state, app_id, viewer_id, row.author_id, "post").await?;
+    ensure_account_visible(state, app_id, row.author_id).await?;
     ensure_content_visible(state, app_id, TargetType::Post, post_id, "post").await
+}
+
+async fn ensure_post_audience(
+    state: &AppState,
+    app_id: Uuid,
+    author_id: Uuid,
+    audience: PostAudience,
+    viewer_id: Option<Uuid>,
+) -> Result<(), ApiError> {
+    if viewer_id == Some(author_id) || audience == PostAudience::Public {
+        return Ok(());
+    }
+    if audience == PostAudience::OwnerOnly || !state.features.is_enabled(Feature::FollowRequests) {
+        return Err(ApiError::NotFound("post"));
+    }
+    let Some(viewer_id) = viewer_id else {
+        return Err(ApiError::NotFound("post"));
+    };
+    let approved = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM follow_approvals WHERE app_id = $1 AND requester_id = $2 AND target_id = $3)",
+    )
+    .bind(app_id)
+    .bind(viewer_id)
+    .bind(author_id)
+    .fetch_one(&state.pool)
+    .await?;
+    if approved {
+        Ok(())
+    } else {
+        Err(ApiError::NotFound("post"))
+    }
+}
+
+fn resolve_post_audience(
+    state: &AppState,
+    visibility: Option<Visibility>,
+    audience: Option<PostAudience>,
+) -> Result<(PostAudience, Visibility), ApiError> {
+    let legacy_audience = visibility.map(|visibility| match visibility {
+        Visibility::Public => PostAudience::Public,
+        Visibility::Private => PostAudience::OwnerOnly,
+    });
+    let audience = audience.or(legacy_audience).unwrap_or_default();
+    if audience == PostAudience::ApprovedFollowers {
+        state.features.require(Feature::FollowRequests)?;
+    }
+    let projected_visibility = match audience {
+        PostAudience::Public => Visibility::Public,
+        PostAudience::OwnerOnly | PostAudience::ApprovedFollowers => Visibility::Private,
+    };
+    if visibility.is_some_and(|visibility| visibility != projected_visibility) {
+        return Err(ApiError::BadRequest(
+            "visibility conflicts with the requested post audience".to_owned(),
+        ));
+    }
+    Ok((audience, projected_visibility))
 }
 
 pub(crate) async fn load_media_ids(
