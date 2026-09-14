@@ -219,7 +219,50 @@ async fn follow_requests_are_explicit_idempotent_and_separate_from_visibility() 
     assert_eq!(
         request_follow(&state, app_id, carol, alice).await.status(),
         StatusCode::NO_CONTENT,
-        "approval may be requested even when an ordinary follow edge already exists"
+        "an existing public follower may still request explicit approval"
+    );
+    assert_eq!(pending_count(&state, app_id, carol, alice).await, 1);
+    assert_eq!(
+        send(
+            &state,
+            Method::DELETE,
+            &format!("/v1/follows/{alice}"),
+            app_id,
+            carol,
+            None,
+        )
+        .await
+        .status(),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(follow_count(&state, app_id, carol, alice).await, 0);
+    assert_eq!(
+        pending_count(&state, app_id, carol, alice).await,
+        0,
+        "unfollow must cancel a same-direction pending approval request"
+    );
+    assert_eq!(
+        accept_follow(&state, app_id, alice, carol).await.status(),
+        StatusCode::NOT_FOUND,
+        "a target must not be able to accept stale consent after a newer unfollow"
+    );
+
+    assert_eq!(
+        send(
+            &state,
+            Method::PUT,
+            &format!("/v1/follows/{alice}"),
+            app_id,
+            carol,
+            None,
+        )
+        .await
+        .status(),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        request_follow(&state, app_id, carol, alice).await.status(),
+        StatusCode::NO_CONTENT
     );
     assert_eq!(
         accept_follow(&state, app_id, alice, carol).await.status(),
