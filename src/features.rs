@@ -14,6 +14,8 @@ pub enum Feature {
     Comments,
     Reactions,
     Follows,
+    #[serde(rename = "follow_requests")]
+    FollowRequests,
     Saves,
     Blocks,
     Mutes,
@@ -23,13 +25,14 @@ pub enum Feature {
 }
 
 impl Feature {
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::Profiles,
         Self::Media,
         Self::Posts,
         Self::Comments,
         Self::Reactions,
         Self::Follows,
+        Self::FollowRequests,
         Self::Saves,
         Self::Blocks,
         Self::Mutes,
@@ -46,6 +49,7 @@ impl Feature {
             "comments" => Some(Self::Comments),
             "reactions" => Some(Self::Reactions),
             "follows" => Some(Self::Follows),
+            "follow_requests" => Some(Self::FollowRequests),
             "saves" => Some(Self::Saves),
             "blocks" => Some(Self::Blocks),
             "mutes" => Some(Self::Mutes),
@@ -67,6 +71,7 @@ impl Feature {
             | Self::Groups
             | Self::Chat
             | Self::Moderation => &[Self::Profiles],
+            Self::FollowRequests => &[Self::Follows],
             Self::Comments | Self::Reactions | Self::Saves => &[Self::Posts],
         }
     }
@@ -77,9 +82,11 @@ impl Feature {
             Self::Posts => &[Self::Media, Self::Reactions, Self::Blocks, Self::Mutes],
             Self::Comments => &[Self::Reactions, Self::Blocks, Self::Mutes],
             Self::Reactions => &[Self::Blocks],
-            Self::Follows => &[Self::Blocks],
+            Self::Follows => &[Self::FollowRequests, Self::Blocks],
+            Self::FollowRequests => &[Self::Blocks],
             Self::Blocks => &[
                 Self::Follows,
+                Self::FollowRequests,
                 Self::Posts,
                 Self::Comments,
                 Self::Reactions,
@@ -94,6 +101,7 @@ impl Feature {
                 Self::Comments,
                 Self::Reactions,
                 Self::Follows,
+                Self::FollowRequests,
                 Self::Saves,
                 Self::Groups,
                 Self::Chat,
@@ -116,6 +124,7 @@ impl fmt::Display for Feature {
             Self::Comments => "comments",
             Self::Reactions => "reactions",
             Self::Follows => "follows",
+            Self::FollowRequests => "follow_requests",
             Self::Saves => "saves",
             Self::Blocks => "blocks",
             Self::Mutes => "mutes",
@@ -301,6 +310,17 @@ mod tests {
         assert_eq!(
             features.effective(),
             vec![Feature::Profiles, Feature::Posts, Feature::Reactions]
+        );
+    }
+
+    #[test]
+    fn follow_requests_resolve_follows_and_profiles() {
+        let features =
+            FeatureSet::from_csv("follow_requests").expect("follow requests should resolve");
+        assert_eq!(features.app_requested(), vec![Feature::FollowRequests]);
+        assert_eq!(
+            features.effective(),
+            vec![Feature::Profiles, Feature::Follows, Feature::FollowRequests]
         );
     }
 
