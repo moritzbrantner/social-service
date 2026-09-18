@@ -10,16 +10,4 @@ cleanup
 docker compose up -d --wait postgres
 export DATABASE_URL="${DATABASE_URL:-postgres://social:social@localhost:5432/social}"
 cargo test --locked --tests
-cargo test --locked --test database_visibility -- --ignored --nocapture
-cargo test --locked --test database_moderation -- --ignored --nocapture
-cargo test --locked --test database_moderation_signals -- --ignored --nocapture
-cargo test --locked --test database_groups -- --ignored --nocapture
-cargo test --locked --test database_group_moderation -- --ignored --nocapture
-cargo test --locked --test database_saved_and_pinned_content -- --ignored --nocapture
-cargo test --locked --test database_user_safety_relationships -- --ignored --nocapture
-cargo test --locked --test database_user_safety_regressions -- --ignored --nocapture
-cargo test --locked --test database_threaded_comments -- --ignored --nocapture
-cargo test --locked --test database_threaded_comment_cascade -- --ignored --nocapture
-cargo test --locked --test database_reactions -- --ignored --nocapture
-cargo test --locked --test database_follow_requests -- --ignored --nocapture
-cargo test --locked --test database_post_audiences -- --ignored --nocapture
+cargo test --locked --tests -- --ignored --nocapture
