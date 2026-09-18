@@ -126,7 +126,10 @@ async fn ensure_target_visible(
     viewer_id: Option<Uuid>,
 ) -> Result<(), ApiError> {
     match target_type {
-        VoteTargetType::Post => ensure_post_visible(state, app_id, target_id, viewer_id).await,
+        VoteTargetType::Post => {
+            ensure_post_visible(state, app_id, target_id, viewer_id).await?;
+            Ok(())
+        }
         VoteTargetType::Comment => {
             ensure_comment_visible(state, app_id, target_id, viewer_id).await
         }
