@@ -125,7 +125,10 @@ async fn ensure_target_visible(
     viewer_id: Option<Uuid>,
 ) -> Result<(), ApiError> {
     match target_type {
-        ReactionTargetType::Post => ensure_post_visible(state, app_id, target_id, viewer_id).await,
+        ReactionTargetType::Post => {
+            ensure_post_visible(state, app_id, target_id, viewer_id).await?;
+            Ok(())
+        }
         ReactionTargetType::Comment => {
             ensure_comment_visible(state, app_id, target_id, viewer_id).await
         }
