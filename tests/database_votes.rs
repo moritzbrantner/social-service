@@ -349,7 +349,10 @@ async fn votes_are_single_choice_visible_and_removed_across_safety_boundaries() 
     .fetch_one(&pool)
     .await
     .expect("leaf vote count should load");
-    assert_eq!(leaf_votes, 0, "physical comment deletion must cascade votes");
+    assert_eq!(
+        leaf_votes, 0,
+        "physical comment deletion must cascade votes"
+    );
 
     let cascade_post_id = create_post(&state, app_id, owner_id, "cascade post", None).await;
     let response = send(
