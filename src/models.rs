@@ -152,6 +152,31 @@ pub struct ReactionSummary {
     pub current_user_reactions: Vec<ReactionType>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Type)]
+#[serde(rename_all = "lowercase")]
+#[sqlx(type_name = "social_vote_target_type", rename_all = "lowercase")]
+pub enum VoteTargetType {
+    Post,
+    Comment,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Type)]
+#[serde(rename_all = "lowercase")]
+#[sqlx(type_name = "social_vote_value", rename_all = "lowercase")]
+pub enum VoteValue {
+    Up,
+    Down,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VoteSummary {
+    pub upvotes: i64,
+    pub downvotes: i64,
+    pub score: i64,
+    pub current_user_vote: Option<VoteValue>,
+}
+
 #[derive(Debug, Serialize, FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct FollowEdge {
