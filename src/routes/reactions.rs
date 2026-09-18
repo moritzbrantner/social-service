@@ -10,12 +10,13 @@ use crate::{
     error::ApiError,
     features::Feature,
     models::{ReactionCount, ReactionSummary, ReactionTargetType, ReactionType},
-    moderation::{TargetType, ensure_account_visible, ensure_content_visible},
-    relationships::ensure_not_blocked,
     state::AppState,
 };
 
-use super::posts::ensure_post_visible;
+use super::{
+    feedback_policy::{ensure_actor_active, ensure_comment_visible},
+    posts::ensure_post_visible,
+};
 
 pub async fn summary(
     State(state): State<AppState>,
@@ -67,7 +68,7 @@ pub async fn put_reaction(
 ) -> Result<StatusCode, ApiError> {
     state.features.require(Feature::Reactions)?;
     let context = RequestContext::from_headers(&headers)?;
-    ensure_reaction_actor_active(&state, context.app_id.0, context.user_id.0).await?;
+    ensure_actor_active(&state, context.app_id.0, context.user_id.0).await?;
     ensure_target_visible(
         &state,
         context.app_id.0,
@@ -116,28 +117,6 @@ pub async fn delete_reaction(
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn ensure_reaction_actor_active(
-    state: &AppState,
-    app_id: Uuid,
-    user_id: Uuid,
-) -> Result<(), ApiError> {
-    if !state.features.is_enabled(Feature::Moderation) {
-        return Ok(());
-    }
-    let restricted = sqlx::query_scalar::<_, bool>(
-        "SELECT EXISTS(SELECT 1 FROM moderation_account_states WHERE app_id = $1 AND user_id = $2 AND state IN ('suspended', 'banned'))",
-    )
-    .bind(app_id)
-    .bind(user_id)
-    .fetch_one(&state.pool)
-    .await?;
-    if restricted {
-        Err(ApiError::Forbidden)
-    } else {
-        Ok(())
-    }
-}
-
 async fn ensure_target_visible(
     state: &AppState,
     app_id: Uuid,
@@ -146,24 +125,9 @@ async fn ensure_target_visible(
     viewer_id: Option<Uuid>,
 ) -> Result<(), ApiError> {
     match target_type {
-        ReactionTargetType::Post => {
-            ensure_post_visible(state, app_id, target_id, viewer_id).await?;
-            Ok(())
-        }
+        ReactionTargetType::Post => ensure_post_visible(state, app_id, target_id, viewer_id).await,
         ReactionTargetType::Comment => {
-            state.features.require(Feature::Comments)?;
-            let target = sqlx::query_as::<_, (Uuid, Uuid)>(
-                "SELECT c.author_id, c.post_id FROM comments c WHERE c.app_id = $1 AND c.id = $2 AND c.deleted_at IS NULL",
-            )
-            .bind(app_id)
-            .bind(target_id)
-            .fetch_optional(&state.pool)
-            .await?
-            .ok_or(ApiError::NotFound("comment"))?;
-            ensure_post_visible(state, app_id, target.1, viewer_id).await?;
-            ensure_not_blocked(state, app_id, viewer_id, target.0, "comment").await?;
-            ensure_account_visible(state, app_id, target.0).await?;
-            ensure_content_visible(state, app_id, TargetType::Comment, target_id, "comment").await
+            ensure_comment_visible(state, app_id, target_id, viewer_id).await
         }
     }
 }
