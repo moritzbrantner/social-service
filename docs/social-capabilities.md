@@ -53,7 +53,7 @@ The ordinary unilateral `follows` relation is never enough to satisfy `approved_
 
 The existing post `visibility` field is retained as a compatibility projection, not as a second policy authority. `public` audience projects to `visibility=public`; both `owner_only` and `approved_followers` project to `visibility=private`. Legacy create-post requests containing only `visibility=private` continue to mean owner-only. Conflicting `visibility` and `audience` inputs are rejected.
 
-Approved-follower reads fail closed when the `follow_requests` capability is disabled, while the post author always retains access. Every derived surface that exposes post content—timeline, comments, reactions, and saved-post reads—must reapply the current audience relation rather than trusting stale cached visibility or a previously valid save/reaction.
+Approved-follower reads fail closed when the `follow_requests` capability is disabled, while the post author always retains access. Every derived surface that exposes post content—timeline, comments, reactions, votes, and saved-post reads—must reapply the current audience relation rather than trusting stale cached visibility or a previously valid save/reaction/vote.
 
 Profile `public | private` visibility remains unchanged and independent from post audiences.
 
@@ -73,9 +73,13 @@ Pinned-message reads reapply message/account moderation and user-block boundarie
 
 ## Votes
 
-Reddit-style upvotes/downvotes have ranking and score semantics that differ from likes/emotions. If a product needs voting, add a separate vote capability rather than treating `upvote` and `downvote` as ordinary reactions.
+Votes are implemented as a separate `votes` capability because up/down score semantics differ from likes or emotional reactions. The initial target set is posts and comments.
 
-Start with direct PostgreSQL aggregation. More advanced score/hotness/ranking calculations may later be read-model strategies while the individual vote remains authoritative.
+Each user has one authoritative vote per target: `up` or `down`. Repeating the same vote is idempotent, changing direction replaces the existing vote, and removing a vote is allowed even after the target becomes invisible so stale relations can be cleaned up.
+
+Vote reads and writes reuse the target's current post/comment audience, moderation, and block boundary. Aggregates are derived directly from PostgreSQL as upvotes, downvotes, and `score = upvotes - downvotes`; blocked or moderation-unavailable voters do not contribute to the affected viewer's summary. Physical target deletion cascades vote rows, while blocking removes direct cross-pair votes without deleting unrelated votes.
+
+More advanced score decay, hotness, controversy, ranking, or denormalized counters remain optional read-model strategies. The individual vote row stays authoritative.
 
 ## Reposts / shares
 
@@ -87,7 +91,7 @@ A repost/reshare is social content structure, not merely a reaction. If introduc
 
 A block is stored as a directional user action, but enforcement is intentionally bilateral between the two users. Profile/post access, follow operations and follow-graph reads, timelines, comment lists, and message/pin reads apply the same block predicate. Creating a conversation containing a blocked pair is rejected. Existing non-group two-person conversations become non-writable while a block exists, while history is retained. Group-linked conversations keep group semantics even when membership later shrinks to two people.
 
-Blocking removes existing follow edges in both directions and pending follow requests in both directions in the same user-pair transaction; approval rows disappear with their approved follow edges. Unblocking is idempotent and never reconstructs those social relationships. Blocking does not silently remove either user from a shared group or destroy conversation history. The public API exposes only the current user's outgoing block list; it does not provide a "who blocked me" oracle.
+Blocking removes existing follow edges in both directions and pending follow requests in both directions in the same user-pair transaction; approval rows disappear with their approved follow edges. Direct reactions and votes between the blocked pair and each other's authored post/comment content are removed, while unrelated feedback remains intact. Unblocking is idempotent and never reconstructs those social relationships. Blocking does not silently remove either user from a shared group or destroy conversation history. The public API exposes only the current user's outgoing block list; it does not provide a "who blocked me" oracle.
 
 A mute is directional and private. It filters the muted user's authored content from the muter's derived timeline and comment-list views, but it does not sever follows, hide direct profile/post access, prevent chat, affect the muted person's view, or grant moderation authority. Unmuting simply restores those derived reads.
 
