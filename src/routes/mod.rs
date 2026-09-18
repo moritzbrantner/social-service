@@ -1,5 +1,6 @@
 mod chat;
 mod comments;
+mod feedback_policy;
 mod follow_requests;
 mod groups;
 mod media;
@@ -10,6 +11,7 @@ mod profiles;
 mod reactions;
 mod relationships;
 mod saves;
+mod votes;
 
 use axum::{
     Json, Router,
@@ -48,6 +50,14 @@ pub fn router() -> Router<AppState> {
         .route(
             "/reactions/{target_type}/{target_id}/{reaction_type}",
             put(reactions::put_reaction).delete(reactions::delete_reaction),
+        )
+        .route(
+            "/votes/{target_type}/{target_id}",
+            get(votes::summary).delete(votes::delete_vote),
+        )
+        .route(
+            "/votes/{target_type}/{target_id}/{vote_value}",
+            put(votes::put_vote),
         )
         .route(
             "/posts/{post_id}/save",
