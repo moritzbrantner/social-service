@@ -23,6 +23,9 @@ import type {
   SavedPost,
   UserSafetyRelationship,
   Visibility,
+  VoteSummary,
+  VoteTargetType,
+  VoteValue,
 } from "./types";
 
 export type SocialClientOptions = {
@@ -141,6 +144,12 @@ export function createSocialClient(options: SocialClientOptions) {
       request<void>(`/v1/reactions/${targetType}/${targetId}/${reactionType}`, { method: "PUT" }),
     unreact: (targetType: ReactionTargetType, targetId: Id, reactionType: ReactionType = "like") =>
       request<void>(`/v1/reactions/${targetType}/${targetId}/${reactionType}`, { method: "DELETE" }),
+    votes: (targetType: VoteTargetType, targetId: Id) =>
+      request<VoteSummary>(`/v1/votes/${targetType}/${targetId}`),
+    vote: (targetType: VoteTargetType, targetId: Id, voteValue: VoteValue) =>
+      request<void>(`/v1/votes/${targetType}/${targetId}/${voteValue}`, { method: "PUT" }),
+    unvote: (targetType: VoteTargetType, targetId: Id) =>
+      request<void>(`/v1/votes/${targetType}/${targetId}`, { method: "DELETE" }),
     follow: (userId: Id) => request<void>(`/v1/follows/${userId}`, { method: "PUT" }),
     unfollow: (userId: Id) => request<void>(`/v1/follows/${userId}`, { method: "DELETE" }),
     followers: (userId: Id, limit = 50) =>
