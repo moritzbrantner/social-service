@@ -13,6 +13,7 @@ pub enum Feature {
     Posts,
     Comments,
     Reactions,
+    Votes,
     Follows,
     #[serde(rename = "follow_requests")]
     FollowRequests,
@@ -25,12 +26,13 @@ pub enum Feature {
 }
 
 impl Feature {
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::Profiles,
         Self::Media,
         Self::Posts,
         Self::Comments,
         Self::Reactions,
+        Self::Votes,
         Self::Follows,
         Self::FollowRequests,
         Self::Saves,
@@ -48,6 +50,7 @@ impl Feature {
             "posts" => Some(Self::Posts),
             "comments" => Some(Self::Comments),
             "reactions" => Some(Self::Reactions),
+            "votes" => Some(Self::Votes),
             "follows" => Some(Self::Follows),
             "follow_requests" => Some(Self::FollowRequests),
             "saves" => Some(Self::Saves),
@@ -72,16 +75,22 @@ impl Feature {
             | Self::Chat
             | Self::Moderation => &[Self::Profiles],
             Self::FollowRequests => &[Self::Follows],
-            Self::Comments | Self::Reactions | Self::Saves => &[Self::Posts],
+            Self::Comments | Self::Reactions | Self::Votes | Self::Saves => &[Self::Posts],
         }
     }
 
     pub const fn integrates_with(self) -> &'static [Self] {
         match self {
             Self::Profiles => &[Self::Media],
-            Self::Posts => &[Self::Media, Self::Reactions, Self::Blocks, Self::Mutes],
-            Self::Comments => &[Self::Reactions, Self::Blocks, Self::Mutes],
-            Self::Reactions => &[Self::Blocks],
+            Self::Posts => &[
+                Self::Media,
+                Self::Reactions,
+                Self::Votes,
+                Self::Blocks,
+                Self::Mutes,
+            ],
+            Self::Comments => &[Self::Reactions, Self::Votes, Self::Blocks, Self::Mutes],
+            Self::Reactions | Self::Votes => &[Self::Blocks],
             Self::Follows => &[Self::FollowRequests, Self::Blocks],
             Self::FollowRequests => &[Self::Blocks],
             Self::Blocks => &[
@@ -90,6 +99,7 @@ impl Feature {
                 Self::Posts,
                 Self::Comments,
                 Self::Reactions,
+                Self::Votes,
                 Self::Chat,
             ],
             Self::Mutes => &[Self::Posts, Self::Comments],
@@ -100,6 +110,7 @@ impl Feature {
                 Self::Posts,
                 Self::Comments,
                 Self::Reactions,
+                Self::Votes,
                 Self::Follows,
                 Self::FollowRequests,
                 Self::Saves,
@@ -123,6 +134,7 @@ impl fmt::Display for Feature {
             Self::Posts => "posts",
             Self::Comments => "comments",
             Self::Reactions => "reactions",
+            Self::Votes => "votes",
             Self::Follows => "follows",
             Self::FollowRequests => "follow_requests",
             Self::Saves => "saves",
@@ -310,6 +322,16 @@ mod tests {
         assert_eq!(
             features.effective(),
             vec![Feature::Profiles, Feature::Posts, Feature::Reactions]
+        );
+    }
+
+    #[test]
+    fn votes_resolve_posts_and_profiles() {
+        let features = FeatureSet::from_csv("votes").expect("votes should resolve");
+        assert_eq!(features.app_requested(), vec![Feature::Votes]);
+        assert_eq!(
+            features.effective(),
+            vec![Feature::Profiles, Feature::Posts, Feature::Votes]
         );
     }
 

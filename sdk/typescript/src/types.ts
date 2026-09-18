@@ -65,6 +65,16 @@ export type ReactionSummary = {
   currentUserReactions: ReactionType[];
 };
 
+export type VoteTargetType = "post" | "comment";
+export type VoteValue = "up" | "down";
+
+export type VoteSummary = {
+  upvotes: number;
+  downvotes: number;
+  score: number;
+  currentUserVote: VoteValue | null;
+};
+
 export type FollowEdge = {
   followerId: Id;
   followedId: Id;
@@ -159,6 +169,7 @@ export type Feature =
   | "posts"
   | "comments"
   | "reactions"
+  | "votes"
   | "follows"
   | "follow_requests"
   | "saves"

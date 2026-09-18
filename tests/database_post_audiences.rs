@@ -27,7 +27,7 @@ async fn approved_follower_audiences_use_durable_approval_across_post_surfaces()
     let state = AppState::new(
         pool.clone(),
         FeatureSet::from_csv(
-            "media,posts,comments,reactions,follows,follow_requests,saves,blocks,moderation",
+            "media,posts,comments,reactions,votes,follows,follow_requests,saves,blocks,moderation",
         )
         .expect("test capabilities should resolve"),
     );
@@ -233,6 +233,32 @@ async fn approved_follower_audiences_use_durable_approval_across_post_surfaces()
         send(
             &state,
             Method::PUT,
+            &format!("/v1/votes/post/{approved_post_id}/up"),
+            app_id,
+            Some(alice),
+            None,
+        )
+        .await
+        .status(),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        send(
+            &state,
+            Method::GET,
+            &format!("/v1/votes/post/{approved_post_id}"),
+            app_id,
+            Some(alice),
+            None,
+        )
+        .await
+        .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        send(
+            &state,
+            Method::PUT,
             &format!("/v1/posts/{approved_post_id}/save"),
             app_id,
             Some(alice),
@@ -346,6 +372,34 @@ async fn approved_follower_audiences_use_durable_approval_across_post_surfaces()
         .await
         .status(),
         StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        send(
+            &state,
+            Method::GET,
+            &format!("/v1/votes/post/{approved_post_id}"),
+            app_id,
+            Some(alice),
+            None,
+        )
+        .await
+        .status(),
+        StatusCode::NOT_FOUND,
+        "a stale vote must not preserve read access after approval is revoked"
+    );
+    assert_eq!(
+        send(
+            &state,
+            Method::DELETE,
+            &format!("/v1/votes/post/{approved_post_id}"),
+            app_id,
+            Some(alice),
+            None,
+        )
+        .await
+        .status(),
+        StatusCode::NO_CONTENT,
+        "a user must still be able to remove a stale vote after losing visibility"
     );
     for (target_type, target_id) in [
         ("post", approved_post_id),

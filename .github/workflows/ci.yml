@@ -46,19 +46,7 @@ jobs:
         with:
           toolchain: 1.98.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-      - run: cargo test --locked --test database_visibility -- --ignored --nocapture
-      - run: cargo test --locked --test database_moderation -- --ignored --nocapture
-      - run: cargo test --locked --test database_moderation_signals -- --ignored --nocapture
-      - run: cargo test --locked --test database_groups -- --ignored --nocapture
-      - run: cargo test --locked --test database_group_moderation -- --ignored --nocapture
-      - run: cargo test --locked --test database_saved_and_pinned_content -- --ignored --nocapture
-      - run: cargo test --locked --test database_user_safety_relationships -- --ignored --nocapture
-      - run: cargo test --locked --test database_user_safety_regressions -- --ignored --nocapture
-      - run: cargo test --locked --test database_threaded_comments -- --ignored --nocapture
-      - run: cargo test --locked --test database_threaded_comment_cascade -- --ignored --nocapture
-      - run: cargo test --locked --test database_reactions -- --ignored --nocapture
-      - run: cargo test --locked --test database_follow_requests -- --ignored --nocapture
-      - run: cargo test --locked --test database_post_audiences -- --ignored --nocapture
+      - run: cargo test --locked --tests -- --ignored --nocapture
 
   typescript:
     runs-on: ubuntu-24.04

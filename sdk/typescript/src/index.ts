@@ -45,4 +45,7 @@ export type {
   UserModeration,
   UserSafetyRelationship,
   Visibility,
+  VoteSummary,
+  VoteTargetType,
+  VoteValue,
 } from "./types";
