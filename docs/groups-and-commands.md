@@ -19,7 +19,7 @@
 - Admins can remove ordinary members but cannot remove the owner or another admin.
 - The owner must transfer ownership before leaving.
 - Only members can read a group. Non-members receive not-found rather than an existence oracle.
-- The MVP caps groups at 100 members, matching the existing simple conversation boundary.
+- The current baseline caps groups at 100 members, matching the existing simple conversation boundary.
 
 Group-local roles are not platform moderation roles. A group owner/admin can manage that group's membership; this does not grant access to moderation queues, account restrictions, or audit APIs.
 
