@@ -4,7 +4,7 @@ Reusable modular social backend for Next.js, Expo, and other applications.
 
 ## Current baseline
 
-One deployable Rust/Axum service with internal modules for:
+One modular-monolith social service, currently deployed as a single Rust/Axum HTTP process, with internal modules for:
 
 - profiles and avatars/media references;
 - posts with explicit audiences, tree-native comments, public reactions, votes, follows, explicit follow requests/approvals, private saves, and a chronological following timeline;
@@ -31,6 +31,10 @@ If scale later requires precomputed feeds, evolve toward a `timeline_entries(use
 
 ## Architecture notes
 
+The modular-monolith boundary is about **authority**, not a requirement that all work execute forever in one operating-system process. If asynchronous work later justifies it, an API process and a background worker may be built from this same repository, reuse the same Rust domain modules, and share the same PostgreSQL authority. That remains one social service.
+
+Docker Compose is used for local infrastructure. Today it runs PostgreSQL; future replaceable infrastructure such as object storage, a search engine, or observability components may also be composed locally. Social capabilities themselves remain internal modules rather than per-feature containers.
+
 `CONTEXT.md` is the concise current-state map for capability status, authority boundaries, and known foundation gaps. Detailed documents below own the corresponding semantics and strategy decisions.
 
 `docs/architecture-evolution.md` records the minimal-default/optional-adapter strategy and the boundary that general-purpose search is not a core social capability. PostgreSQL full-text search may still be used by applications or a generic search adapter when useful.
@@ -50,6 +54,8 @@ cargo run
 ```
 
 The server applies `migrations/` on startup and listens on `127.0.0.1:8080` by default. JSON timestamps are emitted as RFC 3339 strings.
+
+The Compose topology intentionally contains infrastructure, not separate containers for posts, comments, follows, groups, chat, moderation, or other social capabilities.
 
 ## Headers
 
