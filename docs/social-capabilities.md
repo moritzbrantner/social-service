@@ -2,13 +2,19 @@
 
 This document records social-domain capabilities that may be added progressively. A capability should only enter `SOCIAL_FEATURES` when it is implemented and has genuinely social semantics. Keep the smallest useful implementation permanently available; add richer behavior later behind compatible configuration or adapters.
 
+## Current status
+
+The implemented baseline already includes tree-native comments, normalized likes, follow requests and durable approvals, explicit post audiences, private saves, message pins, votes, and block/mute safety relationships. Those sections document current semantics rather than future proposals.
+
+Still-planned social semantics are called out explicitly below. Reposts/quote-posts and mentions/domain events are not implemented yet; richer reaction sets, ratings, comment ranking, and similar behavior remain optional extensions.
+
 ## Comments
 
-Comments should become tree-native rather than remaining flat.
+Comments are tree-native rather than flat.
 
-### Minimal model
+### Current model
 
-- Add nullable `parent_comment_id` to comments.
+- Comments have nullable `parent_comment_id`.
 - `NULL` means a root comment; otherwise the parent must belong to the same `app_id` and `post_id`.
 - A comment's parent is immutable after creation. This keeps the structure acyclic without needing a general graph/cycle-management subsystem.
 - Keep chronological ordering as the simple/default ordering.
@@ -27,7 +33,7 @@ Possible later additions include configurable sorting (`new`, `old`, `top`, `bes
 
 Public reactions represent a user's lightweight response to a post or comment.
 
-The minimal reaction can be `like`. The model should leave room for an application-defined allowed set such as `like`, `love`, `laugh`, `sad`, or `angry` without making emoji/provider details part of the core domain. A deployment may choose whether a user has one active reaction per target or multiple kinds only when that behavior is actually needed.
+The implemented baseline supports `like`. The model intentionally leaves room for an application-defined allowed set such as `like`, `love`, `laugh`, `sad`, or `angry` without making emoji/provider details part of the core domain. Add one-versus-many active-reaction semantics only when a product genuinely needs them.
 
 Keep simple counts as PostgreSQL aggregates first. Denormalized counters or cached aggregates are later read optimizations and must not become the source of truth.
 
@@ -81,7 +87,7 @@ Vote reads and writes reuse the target's current post/comment audience, moderati
 
 More advanced score decay, hotness, controversy, ranking, or denormalized counters remain optional read-model strategies. The individual vote row stays authoritative.
 
-## Reposts / shares
+## Reposts / shares (planned)
 
 A repost/reshare is social content structure, not merely a reaction. If introduced, represent the relationship to the original post explicitly so attribution, deletion, visibility, and counters remain well-defined. External share-sheet behavior belongs to clients and does not require a server-side social capability.
 
@@ -97,7 +103,7 @@ A mute is directional and private. It filters the muted user's authored content 
 
 The first implementation deliberately uses direct PostgreSQL relationship checks. If scale later justifies a policy cache or derived graph, it must reproduce the same semantics and app isolation rather than becoming a second source of truth.
 
-## Mentions and notifications
+## Mentions and notifications (planned)
 
 Mentions are social relationships in authored content and may be modeled here when a product needs them. The social service can emit domain events such as comment replies, reactions, mentions, or follows.
 
