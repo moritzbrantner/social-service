@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`social-service` is a reusable social-domain backend for Next.js, Expo, and other applications. It is intentionally one deployable Rust/Axum modular monolith backed by PostgreSQL.
+`social-service` is a reusable social-domain backend for Next.js, Expo, and other applications. It is intentionally one modular-monolith social authority backed by PostgreSQL. The current baseline runs as one Rust/Axum HTTP process, but runtime topology is not an authority boundary.
 
 The service owns social-domain data, invariants, visibility, safety, moderation policy, and app-scoped persistence. Authentication and product UI remain external boundaries.
 
@@ -15,6 +15,8 @@ The service owns social-domain data, invariants, visibility, safety, moderation 
 - User blocks/mutes are ordinary social safety relationships. Platform moderation is a separate authority plane with trusted capabilities, audited actions, and app-scoped state.
 - Post `audience` is authoritative for post access. Legacy post `visibility` is only a compatibility projection.
 - General-purpose search, authentication, notification delivery, speech/NLU, and presentation components stay outside this repository. They may consume stable social-service APIs or derived events/projections without becoming social authority.
+- A future API process and worker process may both be built from this repository and share the same domain modules/PostgreSQL authority. Separating execution for background work does not create a second social service or move domain ownership.
+- Docker Compose is the local infrastructure topology. PostgreSQL and future replaceable infrastructure adapters may run there; social capabilities must not be split into per-feature containers merely because Compose can host them.
 
 ## Implemented baseline
 
@@ -45,6 +47,7 @@ The current baseline includes:
 - Collection reads use bounded limits but do not yet have continuation cursors.
 - Visibility, audience, block/mute, group, and moderation policy are enforced against authoritative PostgreSQL state through shared Rust/SQL boundaries.
 - Notification delivery and generic search are external concerns; there is not yet a durable general domain-event/outbox contract for them.
+- The current runtime has one HTTP process. If asynchronous workloads justify it, prefer a same-repository worker consuming transactional outbox work before considering independently authoritative services.
 
 ## Foundation gaps
 
@@ -53,6 +56,7 @@ These are architecture/infrastructure gaps rather than missing social semantics:
 - continuation/cursor pagination for unbounded collections;
 - eliminating remaining N+1 collection materialization, especially timeline/message media and group materialization;
 - a transactional domain-event/outbox boundary for notifications, search projections, and future derived feeds;
+- an optional same-repository worker runtime once outbox-backed background work exists; this is execution separation, not domain decomposition;
 - managed media upload/inspection/lifecycle adapters behind the existing logical media model;
 - a machine-readable public HTTP contract and executable server/SDK compatibility checking;
 - production service hardening such as readiness checks, configurable pool/resource limits, timeouts/cancellation, request correlation, and operational metrics;
