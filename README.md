@@ -2,7 +2,7 @@
 
 Reusable modular social backend for Next.js, Expo, and other applications.
 
-## MVP
+## Current baseline
 
 One deployable Rust/Axum service with internal modules for:
 
@@ -17,19 +17,21 @@ One deployable Rust/Axum service with internal modules for:
 - PostgreSQL persistence scoped by `X-App-Id`;
 - framework-independent TypeScript clients for app and trusted-moderation consumers.
 
-The service deliberately does **not** own authentication or UI. A trusted application/auth gateway authenticates the request and injects `X-App-Id` and `X-User-Id`. Do not expose the MVP directly to untrusted clients until a production auth adapter is configured.
+The service deliberately does **not** own authentication or UI. A trusted application/auth gateway authenticates the request and injects `X-App-Id` and `X-User-Id`. Do not expose the service directly to untrusted clients until a production auth adapter is configured.
 
-Media uploads are represented as registered media assets in the MVP. The API already attaches assets to posts and messages; presigned S3-compatible upload support can be added behind the media module without changing those domain relationships.
+Media uploads are represented as registered media assets in the current baseline. The API already attaches assets to posts and messages; presigned S3-compatible upload support can be added behind the media module without changing those domain relationships.
 
 ## Timeline architecture
 
-The MVP intentionally uses **fan-out on read**: the following timeline is assembled by one indexed PostgreSQL query over `posts`, `follows`, and—only for approved-follower posts—the durable `follow_approvals` relation. It does not execute one query or use one database per followed user. Post audience, block, mute, and moderation policy are applied in the same read boundary.
+The current baseline intentionally uses **fan-out on read**: the following timeline is assembled by one indexed PostgreSQL query over `posts`, `follows`, and—only for approved-follower posts—the durable `follow_approvals` relation. It does not execute one query or use one database per followed user. Post audience, block, mute, and moderation policy are applied in the same read boundary.
 
 Do not introduce multiple databases or Twitter-scale fan-out infrastructure without evidence that timeline reads require it. The first optimization should be eliminating N+1 reads when loading media for timeline posts by batch-loading attachments.
 
 If scale later requires precomputed feeds, evolve toward a `timeline_entries(user_id, post_id, created_at)` read model populated asynchronously when posts are created. At very large scale, prefer a hybrid approach: fan out ordinary authors on write, while high-follower accounts are merged into feeds on read to avoid extreme write amplification. Any derived feed must reapply the current post audience, block, mute, and moderation policy before returning content; a stale derived row must never preserve access after approval is revoked.
 
 ## Architecture notes
+
+`CONTEXT.md` is the concise current-state map for capability status, authority boundaries, and known foundation gaps. Detailed documents below own the corresponding semantics and strategy decisions.
 
 `docs/architecture-evolution.md` records the minimal-default/optional-adapter strategy and the boundary that general-purpose search is not a core social capability. PostgreSQL full-text search may still be used by applications or a generic search adapter when useful.
 
