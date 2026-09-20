@@ -5,6 +5,7 @@ Follow the committed `.conventions/` snapshot selected by `conventions.json` and
 Repository-specific decisions:
 
 - Keep this a modular monolith and one deployable social service. Do not split capabilities into microservices without an explicit architectural decision.
+- Keep `CONTEXT.md` as the concise current-state map. Update it when capability status or an authority boundary materially changes; keep detailed semantics in the focused documents rather than duplicating them there.
 - Authentication remains an external boundary; this repository owns social identities/data, not credential management.
 - Keep reusable visual components in the `ui` repository. This repository may own transport/domain SDK code, not presentation components.
 - Preserve `app_id` scoping on persisted social data.
