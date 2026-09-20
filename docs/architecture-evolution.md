@@ -15,6 +15,22 @@ Strategy settings should be validated at startup. Prefer deployment-time configu
 
 None of the advanced strategies below are required for the current baseline. They are planned extension points, not implementation requirements.
 
+## Runtime topology boundary
+
+The modular monolith defines one social-domain authority, not one immutable process topology.
+
+The current baseline runs one Rust/Axum HTTP process against PostgreSQL. If background work becomes necessary, prefer splitting execution before splitting ownership:
+
+- `social-service-api` handles synchronous HTTP/API work;
+- `social-service-worker` handles transactional-outbox dispatch, media-processing orchestration, derived search/feed projections, cleanup, and similar background work;
+- both are built from this repository, reuse the same domain modules, and treat the same PostgreSQL records and Rust policy as authoritative.
+
+This remains one social service. A worker must not recreate authorization, visibility, moderation, group-membership, or relationship semantics independently.
+
+Docker Compose is the canonical local infrastructure/test topology. It may compose PostgreSQL and replaceable infrastructure adapters such as object storage, search, or observability. Do not mirror internal social modules as separate containers or databases merely because containerization makes that mechanically easy.
+
+Move a capability into an independently authoritative service only when there is concrete evidence for a different ownership boundary, such as materially different scaling/availability requirements, independent release ownership, security/data-sovereignty constraints, or an operational envelope that cannot reasonably share this service. Prefer a separate same-repository worker deployment before taking that step.
+
 ## Planned strategy switches
 
 | Concern | Minimal default | Optional advanced strategy | Planned configuration |
@@ -59,3 +75,5 @@ See `docs/social-capabilities.md` for the explicit implemented-versus-planned st
 Do not implement an advanced strategy merely because the extension point exists. Add it when a real application, measured bottleneck, safety requirement, or operational need justifies the extra machinery. The intended progression is always:
 
 `minimal implementation -> measure/need -> enable advanced strategy -> retain minimal fallback`
+
+For execution topology, apply the same rule: `single process -> measured asynchronous need -> same-repository worker -> independently authoritative service only with evidence`.
