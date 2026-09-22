@@ -269,14 +269,8 @@ pub async fn timeline(
     .await?;
 
     let post_ids = records.iter().map(|record| record.id).collect::<Vec<_>>();
-    let mut media_by_post = load_media_ids_batch(
-        &state,
-        context.app_id.0,
-        "post_media",
-        "post_id",
-        &post_ids,
-    )
-    .await?;
+    let mut media_by_post =
+        load_media_ids_batch(&state, context.app_id.0, "post_media", "post_id", &post_ids).await?;
 
     let mut posts = Vec::with_capacity(records.len());
     for record in records {
