@@ -184,12 +184,14 @@ pub async fn health() -> &'static str {
 pub async fn ready(
     axum::extract::State(state): axum::extract::State<AppState>,
 ) -> Result<&'static str, axum::http::StatusCode> {
-    match sqlx::query_scalar::<_, i32>("SELECT 1")
-        .fetch_one(&state.pool)
-        .await
+    match tokio::time::timeout(
+        state.readiness_timeout,
+        sqlx::query_scalar::<_, i32>("SELECT 1").fetch_one(&state.pool),
+    )
+    .await
     {
-        Ok(1) => Ok("ok"),
-        Ok(_) | Err(_) => Err(axum::http::StatusCode::SERVICE_UNAVAILABLE),
+        Ok(Ok(1)) => Ok("ok"),
+        Ok(Ok(_)) | Ok(Err(_)) | Err(_) => Err(axum::http::StatusCode::SERVICE_UNAVAILABLE),
     }
 }
 
