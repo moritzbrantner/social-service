@@ -53,7 +53,7 @@ docker compose up -d postgres
 cargo run
 ```
 
-The server applies `migrations/` on startup and listens on `127.0.0.1:8080` by default. JSON timestamps are emitted as RFC 3339 strings. `GET /health` is process liveness and intentionally does not probe PostgreSQL; `GET /ready` is dependency readiness and succeeds only when PostgreSQL answers a probe.
+The server applies `migrations/` on startup and listens on `127.0.0.1:8080` by default. JSON timestamps are emitted as RFC 3339 strings. `GET /health` is process liveness and intentionally does not probe PostgreSQL; `GET /ready` is dependency readiness and succeeds only when PostgreSQL answers within `SOCIAL_READINESS_TIMEOUT_MS` (2,000 ms by default).
 
 The Compose topology intentionally contains infrastructure, not separate containers for posts, comments, follows, groups, chat, moderation, or other social capabilities.
 
