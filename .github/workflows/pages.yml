@@ -6,6 +6,10 @@ on:
     paths:
       - "pages/**"
       - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "pages/**"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -16,8 +20,22 @@ permissions:
   id-token: write
 
 jobs:
+  validate-showcase:
+    name: Validate showcase
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - run: node --test ./pages/tests/showcase.test.mjs
+      - run: node ./pages/build.mjs
+
   pages-preflight:
     name: Pages preflight
+    needs: validate-showcase
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-24.04
     outputs:
       enabled: ${{ steps.pages.outputs.enabled }}
