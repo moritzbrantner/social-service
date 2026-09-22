@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use axum::{
     Json,
@@ -268,10 +268,13 @@ pub async fn timeline(
     .fetch_all(&state.pool)
     .await?;
 
+    let post_ids = records.iter().map(|record| record.id).collect::<Vec<_>>();
+    let mut media_by_post =
+        load_media_ids_batch(&state, context.app_id.0, "post_media", "post_id", &post_ids).await?;
+
     let mut posts = Vec::with_capacity(records.len());
     for record in records {
-        let media_ids =
-            load_media_ids(&state, context.app_id.0, "post_media", "post_id", record.id).await?;
+        let media_ids = media_by_post.remove(&record.id).unwrap_or_default();
         posts.push(post_from_record(record, media_ids));
     }
     Ok(Json(posts))
@@ -418,6 +421,34 @@ pub(crate) async fn load_media_ids(
         .bind(state.features.is_enabled(Feature::Moderation))
         .fetch_all(&state.pool)
         .await?)
+}
+
+pub(crate) async fn load_media_ids_batch(
+    state: &AppState,
+    app_id: Uuid,
+    table: &'static str,
+    owner_column: &'static str,
+    owner_ids: &[Uuid],
+) -> Result<HashMap<Uuid, Vec<Uuid>>, ApiError> {
+    if owner_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let sql = format!(
+        "SELECT relation.{owner_column}, relation.media_id FROM {table} relation WHERE relation.app_id = $1 AND relation.{owner_column} = ANY($2) AND ($3 = FALSE OR NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'media' AND mcs.target_id = relation.media_id AND mcs.state <> 'active')) ORDER BY relation.{owner_column} ASC, relation.position ASC"
+    );
+    let rows = sqlx::query_as::<_, (Uuid, Uuid)>(&sql)
+        .bind(app_id)
+        .bind(owner_ids)
+        .bind(state.features.is_enabled(Feature::Moderation))
+        .fetch_all(&state.pool)
+        .await?;
+
+    let mut media_by_owner = HashMap::<Uuid, Vec<Uuid>>::with_capacity(owner_ids.len());
+    for (owner_id, media_id) in rows {
+        media_by_owner.entry(owner_id).or_default().push(media_id);
+    }
+    Ok(media_by_owner)
 }
 
 pub(crate) async fn attach_media(

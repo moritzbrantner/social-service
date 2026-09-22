@@ -42,7 +42,8 @@ The current baseline includes:
 
 ## Current implementation strategies
 
-- Timeline delivery uses indexed PostgreSQL fan-out on read.
+- Timeline delivery uses indexed PostgreSQL fan-out on read, with post media batch-loaded for each bounded result set.
+- Chat collection reads batch-load conversation membership and message media rather than issuing one follow-up query per item.
 - Media is a logical registered asset referencing externally stored bytes.
 - Collection reads use bounded limits but do not yet have continuation cursors.
 - Visibility, audience, block/mute, group, and moderation policy are enforced against authoritative PostgreSQL state through shared Rust/SQL boundaries.
@@ -54,12 +55,12 @@ The current baseline includes:
 These are architecture/infrastructure gaps rather than missing social semantics:
 
 - continuation/cursor pagination for unbounded collections;
-- eliminating remaining N+1 collection materialization, especially timeline/message media and group materialization;
+- eliminating remaining N+1 collection materialization, especially group materialization;
 - a transactional domain-event/outbox boundary for notifications, search projections, and future derived feeds;
 - an optional same-repository worker runtime once outbox-backed background work exists; this is execution separation, not domain decomposition;
 - managed media upload/inspection/lifecycle adapters behind the existing logical media model;
 - a machine-readable public HTTP contract and executable server/SDK compatibility checking;
-- production service hardening such as readiness checks, configurable pool/resource limits, timeouts/cancellation, request correlation, and operational metrics;
+- production service hardening such as configurable pool/resource limits, timeouts/cancellation, request correlation, and operational metrics;
 - persisted per-app capability selection if deployments need different app subsets.
 
 Do not introduce caches, queues, precomputed feeds, microservices, or advanced media processing solely because these extension points exist. Add them when a measured product, scale, reliability, or operational need justifies the extra machinery.

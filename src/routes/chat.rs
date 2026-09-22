@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use axum::{
     Json,
@@ -22,7 +22,7 @@ use crate::{
         ensure_user_can,
     },
     relationships::{ensure_direct_conversation_unblocked, ensure_not_blocked, members_have_block},
-    routes::posts::{attach_media, load_media_ids},
+    routes::posts::{attach_media, load_media_ids_batch},
     state::AppState,
 };
 
@@ -121,9 +121,13 @@ pub async fn list_conversations(
     .fetch_all(&state.pool)
     .await?;
 
+    let conversation_ids = rows.iter().map(|row| row.id).collect::<Vec<_>>();
+    let mut members_by_conversation =
+        load_member_ids_batch(&state, context.app_id.0, &conversation_ids).await?;
+
     let mut conversations = Vec::with_capacity(rows.len());
     for row in rows {
-        let member_ids = load_member_ids(&state, context.app_id.0, row.id).await?;
+        let member_ids = members_by_conversation.remove(&row.id).unwrap_or_default();
         conversations.push(Conversation { row, member_ids });
     }
 
@@ -246,16 +250,19 @@ pub async fn list_messages(
     .fetch_all(&state.pool)
     .await?;
 
+    let message_ids = rows.iter().map(|row| row.id).collect::<Vec<_>>();
+    let mut media_by_message = load_media_ids_batch(
+        &state,
+        context.app_id.0,
+        "message_media",
+        "message_id",
+        &message_ids,
+    )
+    .await?;
+
     let mut messages = Vec::with_capacity(rows.len());
     for row in rows {
-        let media_ids = load_media_ids(
-            &state,
-            context.app_id.0,
-            "message_media",
-            "message_id",
-            row.id,
-        )
-        .await?;
+        let media_ids = media_by_message.remove(&row.id).unwrap_or_default();
         messages.push(Message { row, media_ids });
     }
     Ok(Json(messages))
@@ -381,16 +388,19 @@ pub async fn list_pinned_messages(
     .fetch_all(&state.pool)
     .await?;
 
+    let message_ids = rows.iter().map(|row| row.id).collect::<Vec<_>>();
+    let mut media_by_message = load_media_ids_batch(
+        &state,
+        context.app_id.0,
+        "message_media",
+        "message_id",
+        &message_ids,
+    )
+    .await?;
+
     let mut pinned_messages = Vec::with_capacity(rows.len());
     for row in rows {
-        let media_ids = load_media_ids(
-            &state,
-            context.app_id.0,
-            "message_media",
-            "message_id",
-            row.id,
-        )
-        .await?;
+        let media_ids = media_by_message.remove(&row.id).unwrap_or_default();
         pinned_messages.push(PinnedMessage {
             message: Message {
                 row: MessageRow {
@@ -412,18 +422,32 @@ pub async fn list_pinned_messages(
     Ok(Json(pinned_messages))
 }
 
-async fn load_member_ids(
+async fn load_member_ids_batch(
     state: &AppState,
     app_id: Uuid,
-    conversation_id: Uuid,
-) -> Result<Vec<Uuid>, ApiError> {
-    Ok(sqlx::query_scalar::<_, Uuid>(
-        "SELECT user_id FROM conversation_members WHERE app_id = $1 AND conversation_id = $2 ORDER BY joined_at ASC, user_id ASC",
+    conversation_ids: &[Uuid],
+) -> Result<HashMap<Uuid, Vec<Uuid>>, ApiError> {
+    if conversation_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let rows = sqlx::query_as::<_, (Uuid, Uuid)>(
+        "SELECT conversation_id, user_id FROM conversation_members WHERE app_id = $1 AND conversation_id = ANY($2) ORDER BY conversation_id ASC, joined_at ASC, user_id ASC",
     )
     .bind(app_id)
-    .bind(conversation_id)
+    .bind(conversation_ids)
     .fetch_all(&state.pool)
-    .await?)
+    .await?;
+
+    let mut members_by_conversation =
+        HashMap::<Uuid, Vec<Uuid>>::with_capacity(conversation_ids.len());
+    for (conversation_id, user_id) in rows {
+        members_by_conversation
+            .entry(conversation_id)
+            .or_default()
+            .push(user_id);
+    }
+    Ok(members_by_conversation)
 }
 
 async fn require_membership(
