@@ -65,6 +65,53 @@ async fn readiness_fails_closed_when_postgres_is_unavailable() {
 }
 
 #[tokio::test]
+async fn readiness_times_out_when_postgres_stalls() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("fake PostgreSQL listener should bind");
+    let address = listener
+        .local_addr()
+        .expect("fake PostgreSQL listener should have an address");
+    let fake_postgres = tokio::spawn(async move {
+        let (_socket, _) = listener
+            .accept()
+            .await
+            .expect("readiness probe should connect to fake PostgreSQL");
+        std::future::pending::<()>().await;
+    });
+
+    let pool = PgPoolOptions::new()
+        .acquire_timeout(Duration::from_secs(5))
+        .connect_lazy(&format!(
+            "postgres://postgres:postgres@{address}/social_service?sslmode=disable"
+        ))
+        .expect("test database URL should be valid");
+    let state = AppState::new(
+        pool,
+        FeatureSet::from_csv("").expect("test feature set should be valid"),
+    )
+    .with_readiness_timeout(Duration::from_millis(50));
+
+    let started = std::time::Instant::now();
+    let response = app(state)
+        .oneshot(
+            Request::builder()
+                .uri("/ready")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+    fake_postgres.abort();
+
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert!(
+        started.elapsed() < Duration::from_secs(1),
+        "readiness should not wait for the pool acquire timeout"
+    );
+}
+
+#[tokio::test]
 async fn feature_configuration_is_exposed_through_the_http_boundary() {
     let response = app(test_state("comments,follows"))
         .oneshot(
