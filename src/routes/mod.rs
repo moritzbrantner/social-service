@@ -181,6 +181,18 @@ pub async fn health() -> &'static str {
     "ok"
 }
 
+pub async fn ready(
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> Result<&'static str, axum::http::StatusCode> {
+    match sqlx::query_scalar::<_, i32>("SELECT 1")
+        .fetch_one(&state.pool)
+        .await
+    {
+        Ok(1) => Ok("ok"),
+        Ok(_) | Err(_) => Err(axum::http::StatusCode::SERVICE_UNAVAILABLE),
+    }
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FeaturesResponse {
