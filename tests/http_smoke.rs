@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use axum::{
     body::Body,
     http::{Request, StatusCode},
@@ -36,6 +38,30 @@ async fn health_is_reachable_through_the_composed_router() {
         .expect("response body should be readable")
         .to_bytes();
     assert_eq!(body.as_ref(), b"ok");
+}
+
+#[tokio::test]
+async fn readiness_fails_closed_when_postgres_is_unavailable() {
+    let pool = PgPoolOptions::new()
+        .acquire_timeout(Duration::from_millis(100))
+        .connect_lazy("postgres://postgres:postgres@127.0.0.1:1/social_service")
+        .expect("test database URL should be valid");
+    let state = AppState::new(
+        pool,
+        FeatureSet::from_csv("").expect("test feature set should be valid"),
+    );
+
+    let response = app(state)
+        .oneshot(
+            Request::builder()
+                .uri("/ready")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
 }
 
 #[tokio::test]
