@@ -14,7 +14,7 @@ The service owns social-domain data, invariants, visibility, safety, moderation 
 - Groups own durable group membership and group-local roles; chat owns conversations and messages. Their association is explicit.
 - User blocks/mutes are ordinary social safety relationships. Platform moderation is a separate authority plane with trusted capabilities, audited actions, and app-scoped state.
 - Post `audience` is authoritative for post access. Legacy post `visibility` is only a compatibility projection.
-- General-purpose search, authentication, notification delivery, speech/NLU, and presentation components stay outside this repository. They may consume stable social-service APIs or derived events/projections without becoming social authority.
+- General-purpose search, authentication, notification delivery, speech/NLU, and production presentation components stay outside this repository. The `pages/` showcase is static representational documentation only; it uses mock data and is not a social-service client or authority.
 - A future API process and worker process may both be built from this repository and share the same domain modules/PostgreSQL authority. Separating execution for background work does not create a second social service or move domain ownership.
 - Docker Compose is the local infrastructure topology. PostgreSQL and future replaceable infrastructure adapters may run there; social capabilities must not be split into per-feature containers merely because Compose can host them.
 
@@ -76,6 +76,7 @@ The documented social backlog includes reposts/quote-post structure, mentions pl
 - `docs/architecture-evolution.md`: optional strategy evolution and infrastructure boundaries.
 - `docs/groups-and-commands.md`: group/chat ownership and structured command boundary.
 - `docs/moderation-signals.md`: non-authoritative safety-signal boundary.
+- `pages/`: static GitHub Pages product concept using mock data only; not runtime/client code.
 - `.coding-tooling.json` and `.conventions/`: deterministic repository validation contract.
 
 Open issues should describe genuinely outstanding work. Completed foundation epics should be closed rather than retained as an alternative roadmap.
