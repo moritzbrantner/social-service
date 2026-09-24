@@ -79,18 +79,9 @@ pub async fn create_conversation(
         }
     }
     if state.features.is_enabled(Feature::Blocks) {
-        lock_user_pairs(
-            &mut transaction,
-            context.app_id.0,
-            &member_ids,
-        )
-        .await?;
-        if members_have_block_in_transaction(
-            &mut transaction,
-            context.app_id.0,
-            &member_ids,
-        )
-        .await?
+        lock_user_pairs(&mut transaction, context.app_id.0, &member_ids).await?;
+        if members_have_block_in_transaction(&mut transaction, context.app_id.0, &member_ids)
+            .await?
         {
             return Err(ApiError::BadRequest(
                 "conversation members must be mutually available in this app".to_owned(),
