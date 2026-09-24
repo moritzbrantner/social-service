@@ -10,12 +10,13 @@ use crate::{
     auth::{RequestContext, UserId},
     error::ApiError,
     features::Feature,
+    locking::lock_user_pair,
     models::{FollowApproval, FollowRequest, LimitQuery},
     moderation::{
         RestrictionScope, TargetType, ensure_account_visible, ensure_content_visible,
         ensure_user_can,
     },
-    relationships::{lock_user_pair, users_are_blocked_in_transaction},
+    relationships::users_are_blocked_in_transaction,
     state::AppState,
 };
 

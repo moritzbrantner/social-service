@@ -9,8 +9,9 @@ use crate::{
     auth::RequestContext,
     error::ApiError,
     features::Feature,
+    locking::{lock_user_pair, lock_users},
     models::{LimitQuery, UserSafetyRelationship},
-    relationships::{ensure_relationship_target, lock_user_pair, lock_users},
+    relationships::ensure_relationship_target,
     state::AppState,
 };
 
