@@ -26,7 +26,7 @@ async fn moderation_review_retains_complete_evidence_and_disables_unavailable_ac
 
     let state = AppState::new(
         pool.clone(),
-        FeatureSet::from_csv("comments,follow_requests,moderation")
+        FeatureSet::from_csv("media,comments,follow_requests,moderation")
             .expect("test capabilities should resolve"),
     );
     let app_id = Uuid::new_v4();
@@ -64,17 +64,69 @@ async fn moderation_review_retains_complete_evidence_and_disables_unavailable_ac
     .await;
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
 
-    let response = send(
-        &state,
-        Method::PUT,
-        &format!("/v1/moderation/users/{moderator_id}"),
-        app_id,
-        admin_id,
-        Some("users.restrict"),
-        Some(json!({ "state": "suspended", "reason": "temporary suspension" })),
+    let race_post = json_body(
+        send(
+            &state,
+            Method::POST,
+            "/v1/posts",
+            app_id,
+            author_id,
+            None,
+            Some(json!({ "body": "authority race target" })),
+        )
+        .await,
     )
     .await;
-    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    let race_post_id = id(&race_post);
+
+    let mut suspension_tx = pool.begin().await.expect("suspension transaction");
+    lock_user_authority(&mut suspension_tx, app_id, moderator_id).await;
+    let request_state = state.clone();
+    let privileged_mutation = tokio::spawn(async move {
+        send(
+            &request_state,
+            Method::PUT,
+            &format!("/v1/moderation/content/post/{race_post_id}"),
+            app_id,
+            moderator_id,
+            None,
+            Some(json!({ "state": "hidden", "reason": "must lose race" })),
+        )
+        .await
+    });
+    wait_for_authority_lock_waiter(&pool).await;
+    sqlx::query(
+        "INSERT INTO moderation_account_states (app_id, user_id, state, reason, updated_by) VALUES ($1, $2, 'suspended', $3, $4) ON CONFLICT (app_id, user_id) DO UPDATE SET state = EXCLUDED.state, reason = EXCLUDED.reason, updated_by = EXCLUDED.updated_by, updated_at = now(), version = moderation_account_states.version + 1",
+    )
+    .bind(app_id)
+    .bind(moderator_id)
+    .bind("temporary suspension")
+    .bind(admin_id)
+    .execute(&mut *suspension_tx)
+    .await
+    .expect("suspension write");
+    suspension_tx.commit().await.expect("suspension commit");
+
+    let response = privileged_mutation
+        .await
+        .expect("privileged mutation task should complete");
+    assert_eq!(
+        response.status(),
+        StatusCode::FORBIDDEN,
+        "a privileged mutation that observed an active actor before suspension must reauthorize after the suspension commits"
+    );
+    let raced_state_count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM moderation_content_states WHERE app_id = $1 AND target_type = 'post' AND target_id = $2",
+    )
+    .bind(app_id)
+    .bind(race_post_id)
+    .fetch_one(&pool)
+    .await
+    .expect("raced moderation state count");
+    assert_eq!(
+        raced_state_count, 0,
+        "the losing privileged mutation must not leave enforcement state behind"
+    );
 
     for capabilities in [None, Some("reports.read")] {
         let response = send(
@@ -117,6 +169,24 @@ async fn moderation_review_retains_complete_evidence_and_disables_unavailable_ac
     .await;
     assert_eq!(response.status(), StatusCode::OK);
 
+    let evidence_media = json_body(
+        send(
+            &state,
+            Method::POST,
+            "/v1/media",
+            app_id,
+            author_id,
+            None,
+            Some(json!({
+                "url": "https://example.invalid/moderation-evidence.png",
+                "contentType": "image/png"
+            })),
+        )
+        .await,
+    )
+    .await;
+    let evidence_media_id = id(&evidence_media);
+
     let audience_post = json_body(
         send(
             &state,
@@ -127,7 +197,8 @@ async fn moderation_review_retains_complete_evidence_and_disables_unavailable_ac
             None,
             Some(json!({
                 "body": "approved follower evidence",
-                "audience": "approved_followers"
+                "audience": "approved_followers",
+                "mediaIds": [evidence_media_id]
             })),
         )
         .await,
@@ -167,7 +238,41 @@ async fn moderation_review_retains_complete_evidence_and_disables_unavailable_ac
     assert_eq!(snapshot["type"], "post");
     assert_eq!(snapshot["data"]["audience"], "approved_followers");
     assert_eq!(snapshot["data"]["visibility"], "private");
-    assert_eq!(snapshot["data"]["mediaIds"], json!([]));
+    assert_eq!(
+        snapshot["data"]["mediaIds"],
+        json!([evidence_media_id.to_string()])
+    );
+
+    let response = send(
+        &state,
+        Method::DELETE,
+        &format!("/v1/posts/{audience_post_id}"),
+        app_id,
+        author_id,
+        None,
+        None,
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    let retained_post = json_body(
+        send(
+            &state,
+            Method::GET,
+            &format!("/v1/moderation/content/post/{audience_post_id}"),
+            app_id,
+            moderator_id,
+            None,
+            None,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(retained_post["data"]["audience"], "approved_followers");
+    assert_eq!(
+        retained_post["data"]["mediaIds"],
+        json!([evidence_media_id.to_string()]),
+        "report-time evidence must retain related media after physical post deletion"
+    );
 
     let public_post = json_body(
         send(
@@ -307,6 +412,40 @@ async fn moderation_review_retains_complete_evidence_and_disables_unavailable_ac
     .await
     .expect("snapshot case count");
     assert_eq!(retained_case_count, 1);
+}
+
+async fn lock_user_authority(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    app_id: Uuid,
+    user_id: Uuid,
+) {
+    sqlx::query(
+        "SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':user:' || $2::uuid::text, 0))",
+    )
+    .bind(app_id)
+    .bind(user_id)
+    .execute(&mut **transaction)
+    .await
+    .expect("authority user lock");
+}
+
+async fn wait_for_authority_lock_waiter(pool: &sqlx::PgPool) {
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let waiting = sqlx::query_scalar::<_, bool>(
+                "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid() AND wait_event_type = 'Lock' AND query LIKE '%:user:%')",
+            )
+            .fetch_one(pool)
+            .await
+            .expect("authority lock wait state");
+            if waiting {
+                return;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("privileged mutation should reach the authority lock before suspension commits");
 }
 
 fn id(value: &Value) -> Uuid {
