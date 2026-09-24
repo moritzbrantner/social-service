@@ -1,3 +1,5 @@
+pub(crate) mod snapshot;
+
 use std::collections::HashSet;
 
 use axum::http::{HeaderMap, HeaderName};
