@@ -76,23 +76,23 @@ pub async fn lock_user_pair(
     Ok(())
 }
 
-pub async fn lock_user_pairs(
+pub async fn lock_users(
     transaction: &mut Transaction<'_, Postgres>,
     app_id: Uuid,
-    member_ids: &[Uuid],
+    user_ids: &[Uuid],
 ) -> Result<(), ApiError> {
-    if member_ids.len() < 2 {
+    if user_ids.is_empty() {
         return Ok(());
     }
 
-    let mut member_ids = member_ids.to_vec();
-    member_ids.sort_unstable();
-    member_ids.dedup();
+    let mut user_ids = user_ids.to_vec();
+    user_ids.sort_unstable();
+    user_ids.dedup();
     sqlx::query(
-        "SELECT social_lock_user_pair($1, left_member.user_id, right_member.user_id) FROM unnest($2::uuid[]) WITH ORDINALITY AS left_member(user_id, position) JOIN unnest($2::uuid[]) WITH ORDINALITY AS right_member(user_id, position) ON left_member.position < right_member.position ORDER BY left_member.user_id ASC, right_member.user_id ASC",
+        "SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':user:' || locked_user.user_id::text, 0)) FROM unnest($2::uuid[]) AS locked_user(user_id) ORDER BY locked_user.user_id ASC",
     )
     .bind(app_id)
-    .bind(member_ids)
+    .bind(user_ids)
     .execute(&mut **transaction)
     .await?;
     Ok(())
