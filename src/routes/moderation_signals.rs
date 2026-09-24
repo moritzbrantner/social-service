@@ -130,13 +130,7 @@ pub async fn create_signal(
     let correlation = correlation_id(&headers)?;
     let signal_id = Uuid::new_v4();
     let mut transaction = state.pool.begin().await?;
-    authorize_mutation(
-        &mut transaction,
-        &actor,
-        Capability::SignalsWrite,
-        &[],
-    )
-    .await?;
+    authorize_mutation(&mut transaction, &actor, Capability::SignalsWrite, &[]).await?;
     let inserted = sqlx::query_as::<_, ModerationSignal>(
         "INSERT INTO moderation_signals (id, app_id, case_id, target_type, target_id, source, kind, severity, confidence, model, model_version, evidence, idempotency_key, observed_at, ingested_by, correlation_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) ON CONFLICT (app_id, source, idempotency_key) DO NOTHING RETURNING id, case_id, target_type, target_id, source, kind, severity, confidence, model, model_version, evidence, idempotency_key, observed_at, ingested_by, correlation_id, created_at",
     )
