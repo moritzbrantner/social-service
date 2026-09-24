@@ -20,7 +20,7 @@ use crate::{
     },
     moderation::{
         AccountState, Capability, CaseState, ContentState, RestrictionScope, Role, TargetType,
-        actor, append_audit, correlation_id, target_exists, validate_reason,
+        actor, append_audit, authorize_mutation, correlation_id, target_exists, validate_reason,
     },
     state::AppState,
     visibility::Visibility,
@@ -531,6 +531,13 @@ pub async fn set_case_state(
     }
     let correlation = correlation_id(&headers)?;
     let mut transaction = state.pool.begin().await?;
+    authorize_mutation(
+        &mut transaction,
+        &actor,
+        Capability::ContentModerate,
+        &[],
+    )
+    .await?;
     let current = sqlx::query_as::<_, (CaseState, Option<String>)>(
         "SELECT state, resolution_note FROM moderation_cases WHERE app_id = $1 AND id = $2 FOR UPDATE",
     )
@@ -591,6 +598,13 @@ pub async fn set_content_state(
     .await?;
     let correlation = correlation_id(&headers)?;
     let mut transaction = state.pool.begin().await?;
+    authorize_mutation(
+        &mut transaction,
+        &actor,
+        Capability::ContentModerate,
+        &[],
+    )
+    .await?;
     let previous = sqlx::query_scalar::<_, ContentState>(
         "SELECT state FROM moderation_content_states WHERE app_id = $1 AND target_type = $2 AND target_id = $3 FOR UPDATE",
     )
@@ -654,6 +668,13 @@ pub async fn force_remove_group_member(
     .await?;
     let correlation = correlation_id(&headers)?;
     let mut transaction = state.pool.begin().await?;
+    authorize_mutation(
+        &mut transaction,
+        &actor,
+        Capability::UsersRestrict,
+        &[],
+    )
+    .await?;
     sqlx::query_scalar::<_, Uuid>("SELECT id FROM groups WHERE app_id = $1 AND id = $2 FOR UPDATE")
         .bind(actor.context.app_id.0)
         .bind(group_id)
@@ -740,6 +761,13 @@ pub async fn set_account_state(
     .await?;
     let correlation = correlation_id(&headers)?;
     let mut transaction = state.pool.begin().await?;
+    authorize_mutation(
+        &mut transaction,
+        &actor,
+        Capability::UsersRestrict,
+        &[user_id],
+    )
+    .await?;
     let previous = sqlx::query_scalar::<_, AccountState>(
         "SELECT state FROM moderation_account_states WHERE app_id = $1 AND user_id = $2 FOR UPDATE",
     )
@@ -798,6 +826,13 @@ pub async fn set_restriction(
     .await?;
     let correlation = correlation_id(&headers)?;
     let mut transaction = state.pool.begin().await?;
+    authorize_mutation(
+        &mut transaction,
+        &actor,
+        Capability::UsersRestrict,
+        &[],
+    )
+    .await?;
     let previous = sqlx::query_scalar::<_, Option<String>>(
         "SELECT reason FROM moderation_restrictions WHERE app_id = $1 AND user_id = $2 AND scope = $3 FOR UPDATE",
     )
@@ -849,6 +884,13 @@ pub async fn clear_restriction(
     actor.require(Capability::UsersRestrict)?;
     let correlation = correlation_id(&headers)?;
     let mut transaction = state.pool.begin().await?;
+    authorize_mutation(
+        &mut transaction,
+        &actor,
+        Capability::UsersRestrict,
+        &[],
+    )
+    .await?;
     let previous = sqlx::query_scalar::<_, Option<String>>(
         "SELECT reason FROM moderation_restrictions WHERE app_id = $1 AND user_id = $2 AND scope = $3 FOR UPDATE",
     )
@@ -897,6 +939,13 @@ pub async fn set_role(
     let reason = validate_reason(input.reason.as_deref())?;
     let correlation = correlation_id(&headers)?;
     let mut transaction = state.pool.begin().await?;
+    authorize_mutation(
+        &mut transaction,
+        &actor,
+        Capability::RolesManage,
+        &[user_id],
+    )
+    .await?;
     let previous = sqlx::query_scalar::<_, Role>(
         "SELECT role FROM moderation_role_bindings WHERE app_id = $1 AND user_id = $2 FOR UPDATE",
     )
@@ -943,6 +992,13 @@ pub async fn clear_role(
     actor.require(Capability::RolesManage)?;
     let correlation = correlation_id(&headers)?;
     let mut transaction = state.pool.begin().await?;
+    authorize_mutation(
+        &mut transaction,
+        &actor,
+        Capability::RolesManage,
+        &[user_id],
+    )
+    .await?;
     let previous = sqlx::query_scalar::<_, Role>(
         "SELECT role FROM moderation_role_bindings WHERE app_id = $1 AND user_id = $2 FOR UPDATE",
     )
