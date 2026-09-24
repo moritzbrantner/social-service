@@ -5,6 +5,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use sqlx::FromRow;
 use uuid::Uuid;
 
@@ -12,13 +13,17 @@ use crate::{
     auth::RequestContext,
     error::ApiError,
     features::Feature,
-    groups::GroupRow,
-    models::{Comment, ConversationRow, MediaAsset, MessageRow, PostRow, Profile},
+    groups::{Group, GroupMember, GroupRow},
+    models::{
+        Comment, Conversation, ConversationRow, MediaAsset, Message, MessageRow, Post,
+        PostAudience, PostRow, Profile,
+    },
     moderation::{
         AccountState, Capability, CaseState, ContentState, RestrictionScope, Role, TargetType,
         actor, append_audit, correlation_id, target_exists, validate_reason,
     },
     state::AppState,
+    visibility::Visibility,
 };
 
 use super::{groups::remove_non_owner_member, posts::ensure_post_visible};
@@ -160,12 +165,186 @@ pub struct AuditQuery {
 #[serde(tag = "type", content = "data", rename_all = "lowercase")]
 pub enum TargetSnapshot {
     Profile(Profile),
-    Post(PostRow),
+    Post(Post),
     Comment(Comment),
     Media(MediaAsset),
-    Group(GroupRow),
-    Conversation(ConversationRow),
-    Message(MessageRow),
+    Group(Group),
+    Conversation(Conversation),
+    Message(Message),
+}
+
+async fn load_target_snapshot(
+    state: &AppState,
+    app_id: Uuid,
+    target_type: TargetType,
+    target_id: Uuid,
+) -> Result<Option<TargetSnapshot>, ApiError> {
+    let snapshot = match target_type {
+        TargetType::Profile => {
+            sqlx::query_as::<_, Profile>(
+                "SELECT user_id, display_name, bio, avatar_media_id, visibility, created_at, updated_at, version FROM profiles WHERE app_id = $1 AND user_id = $2",
+            )
+            .bind(app_id)
+            .bind(target_id)
+            .fetch_optional(&state.pool)
+            .await?
+            .map(TargetSnapshot::Profile)
+        }
+        TargetType::Post => {
+            let record = sqlx::query_as::<
+                _,
+                (
+                    Uuid,
+                    Uuid,
+                    String,
+                    Visibility,
+                    PostAudience,
+                    DateTime<Utc>,
+                    DateTime<Utc>,
+                    i64,
+                ),
+            >(
+                "SELECT id, author_id, body, visibility, audience, created_at, updated_at, version FROM posts WHERE app_id = $1 AND id = $2",
+            )
+            .bind(app_id)
+            .bind(target_id)
+            .fetch_optional(&state.pool)
+            .await?;
+            if let Some((
+                id,
+                author_id,
+                body,
+                visibility,
+                audience,
+                created_at,
+                updated_at,
+                version,
+            )) = record
+            {
+                let media_ids = sqlx::query_scalar::<_, Uuid>(
+                    "SELECT media_id FROM post_media WHERE app_id = $1 AND post_id = $2 ORDER BY position ASC",
+                )
+                .bind(app_id)
+                .bind(target_id)
+                .fetch_all(&state.pool)
+                .await?;
+                Some(TargetSnapshot::Post(Post {
+                    row: PostRow {
+                        id,
+                        author_id,
+                        body,
+                        visibility,
+                        created_at,
+                        updated_at,
+                        version,
+                    },
+                    audience,
+                    media_ids,
+                }))
+            } else {
+                None
+            }
+        }
+        TargetType::Comment => sqlx::query_as::<_, Comment>(
+            "SELECT id, post_id, parent_comment_id, author_id, body, deleted_at, created_at, updated_at, version FROM comments WHERE app_id = $1 AND id = $2",
+        )
+        .bind(app_id)
+        .bind(target_id)
+        .fetch_optional(&state.pool)
+        .await?
+        .map(TargetSnapshot::Comment),
+        TargetType::Media => sqlx::query_as::<_, MediaAsset>(
+            "SELECT id, owner_id, url, content_type, created_at, updated_at, version FROM media_assets WHERE app_id = $1 AND id = $2",
+        )
+        .bind(app_id)
+        .bind(target_id)
+        .fetch_optional(&state.pool)
+        .await?
+        .map(TargetSnapshot::Media),
+        TargetType::Group => {
+            let row = sqlx::query_as::<_, GroupRow>(
+                "SELECT id, name, avatar_media_id, created_by, created_at, updated_at, version FROM groups WHERE app_id = $1 AND id = $2",
+            )
+            .bind(app_id)
+            .bind(target_id)
+            .fetch_optional(&state.pool)
+            .await?;
+            if let Some(row) = row {
+                let members = sqlx::query_as::<_, GroupMember>(
+                    "SELECT user_id, role, joined_at, updated_at, version FROM group_members WHERE app_id = $1 AND group_id = $2 ORDER BY joined_at ASC, user_id ASC",
+                )
+                .bind(app_id)
+                .bind(target_id)
+                .fetch_all(&state.pool)
+                .await?;
+                let chat_conversation_id = sqlx::query_scalar::<_, Uuid>(
+                    "SELECT conversation_id FROM group_conversations WHERE app_id = $1 AND group_id = $2",
+                )
+                .bind(app_id)
+                .bind(target_id)
+                .fetch_optional(&state.pool)
+                .await?;
+                Some(TargetSnapshot::Group(Group {
+                    row,
+                    members,
+                    chat_conversation_id,
+                }))
+            } else {
+                None
+            }
+        }
+        TargetType::Conversation => {
+            let row = sqlx::query_as::<_, ConversationRow>(
+                "SELECT id, created_at, updated_at, version FROM conversations WHERE app_id = $1 AND id = $2",
+            )
+            .bind(app_id)
+            .bind(target_id)
+            .fetch_optional(&state.pool)
+            .await?;
+            if let Some(row) = row {
+                let member_ids = sqlx::query_scalar::<_, Uuid>(
+                    "SELECT user_id FROM conversation_members WHERE app_id = $1 AND conversation_id = $2 ORDER BY joined_at ASC, user_id ASC",
+                )
+                .bind(app_id)
+                .bind(target_id)
+                .fetch_all(&state.pool)
+                .await?;
+                Some(TargetSnapshot::Conversation(Conversation { row, member_ids }))
+            } else {
+                None
+            }
+        }
+        TargetType::Message => {
+            let row = sqlx::query_as::<_, MessageRow>(
+                "SELECT id, conversation_id, author_id, body, created_at, updated_at, version FROM messages WHERE app_id = $1 AND id = $2",
+            )
+            .bind(app_id)
+            .bind(target_id)
+            .fetch_optional(&state.pool)
+            .await?;
+            if let Some(row) = row {
+                let media_ids = sqlx::query_scalar::<_, Uuid>(
+                    "SELECT media_id FROM message_media WHERE app_id = $1 AND message_id = $2 ORDER BY position ASC",
+                )
+                .bind(app_id)
+                .bind(target_id)
+                .fetch_all(&state.pool)
+                .await?;
+                Some(TargetSnapshot::Message(Message { row, media_ids }))
+            } else {
+                None
+            }
+        }
+    };
+    Ok(snapshot)
+}
+
+fn snapshot_value(snapshot: &TargetSnapshot) -> Result<Value, ApiError> {
+    serde_json::to_value(snapshot).map_err(|_| ApiError::Internal)
+}
+
+fn snapshot_json(snapshot: &TargetSnapshot) -> Result<String, ApiError> {
+    serde_json::to_string(snapshot).map_err(|_| ApiError::Internal)
 }
 
 pub async fn create_report(
@@ -202,18 +381,28 @@ pub async fn create_report(
         ));
     }
     ensure_reportable_target(&state, context, input.target_type, input.target_id).await?;
+    let target_snapshot = load_target_snapshot(
+        &state,
+        context.app_id.0,
+        input.target_type,
+        input.target_id,
+    )
+    .await?
+    .ok_or(ApiError::NotFound("moderation target"))?;
+    let target_snapshot = snapshot_json(&target_snapshot)?;
 
     let case_id = Uuid::new_v4();
     let report_id = Uuid::new_v4();
     let mut transaction = state.pool.begin().await?;
     sqlx::query(
-        "INSERT INTO moderation_cases (id, app_id, target_type, target_id, opened_by) VALUES ($1, $2, $3, $4, $5)",
+        "INSERT INTO moderation_cases (id, app_id, target_type, target_id, opened_by, target_snapshot) VALUES ($1, $2, $3, $4, $5, $6::jsonb)",
     )
     .bind(case_id)
     .bind(context.app_id.0)
     .bind(input.target_type)
     .bind(input.target_id)
     .bind(context.user_id.0)
+    .bind(target_snapshot)
     .execute(&mut *transaction)
     .await?;
 
@@ -301,84 +490,28 @@ pub async fn review_target(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path((target_type, target_id)): Path<(TargetType, Uuid)>,
-) -> Result<Json<TargetSnapshot>, ApiError> {
+) -> Result<Json<Value>, ApiError> {
     let actor = actor(&state, &headers).await?;
     actor
         .require(Capability::ReportsRead)
         .or_else(|_| actor.require(Capability::ContentModerate))?;
     let app_id = actor.context.app_id.0;
-    let snapshot = match target_type {
-        TargetType::Profile => TargetSnapshot::Profile(
-            sqlx::query_as::<_, Profile>(
-                "SELECT user_id, display_name, bio, avatar_media_id, visibility, created_at, updated_at, version FROM profiles WHERE app_id = $1 AND user_id = $2",
-            )
-            .bind(app_id)
-            .bind(target_id)
-            .fetch_optional(&state.pool)
-            .await?
-            .ok_or(ApiError::NotFound("moderation target"))?,
-        ),
-        TargetType::Post => TargetSnapshot::Post(
-            sqlx::query_as::<_, PostRow>(
-                "SELECT id, author_id, body, visibility, created_at, updated_at, version FROM posts WHERE app_id = $1 AND id = $2",
-            )
-            .bind(app_id)
-            .bind(target_id)
-            .fetch_optional(&state.pool)
-            .await?
-            .ok_or(ApiError::NotFound("moderation target"))?,
-        ),
-        TargetType::Comment => TargetSnapshot::Comment(
-            sqlx::query_as::<_, Comment>(
-                "SELECT id, post_id, author_id, body, created_at, updated_at, version FROM comments WHERE app_id = $1 AND id = $2",
-            )
-            .bind(app_id)
-            .bind(target_id)
-            .fetch_optional(&state.pool)
-            .await?
-            .ok_or(ApiError::NotFound("moderation target"))?,
-        ),
-        TargetType::Media => TargetSnapshot::Media(
-            sqlx::query_as::<_, MediaAsset>(
-                "SELECT id, owner_id, url, content_type, created_at, updated_at, version FROM media_assets WHERE app_id = $1 AND id = $2",
-            )
-            .bind(app_id)
-            .bind(target_id)
-            .fetch_optional(&state.pool)
-            .await?
-            .ok_or(ApiError::NotFound("moderation target"))?,
-        ),
-        TargetType::Group => TargetSnapshot::Group(
-            sqlx::query_as::<_, GroupRow>(
-                "SELECT id, name, avatar_media_id, created_by, created_at, updated_at, version FROM groups WHERE app_id = $1 AND id = $2",
-            )
-            .bind(app_id)
-            .bind(target_id)
-            .fetch_optional(&state.pool)
-            .await?
-            .ok_or(ApiError::NotFound("moderation target"))?,
-        ),
-        TargetType::Conversation => TargetSnapshot::Conversation(
-            sqlx::query_as::<_, ConversationRow>(
-                "SELECT id, created_at, updated_at, version FROM conversations WHERE app_id = $1 AND id = $2",
-            )
-            .bind(app_id)
-            .bind(target_id)
-            .fetch_optional(&state.pool)
-            .await?
-            .ok_or(ApiError::NotFound("moderation target"))?,
-        ),
-        TargetType::Message => TargetSnapshot::Message(
-            sqlx::query_as::<_, MessageRow>(
-                "SELECT id, conversation_id, author_id, body, created_at, updated_at, version FROM messages WHERE app_id = $1 AND id = $2",
-            )
-            .bind(app_id)
-            .bind(target_id)
-            .fetch_optional(&state.pool)
-            .await?
-            .ok_or(ApiError::NotFound("moderation target"))?,
-        ),
-    };
+
+    if let Some(snapshot) = load_target_snapshot(&state, app_id, target_type, target_id).await? {
+        return Ok(Json(snapshot_value(&snapshot)?));
+    }
+
+    let stored_snapshot = sqlx::query_scalar::<_, String>(
+        "SELECT target_snapshot::text FROM moderation_cases WHERE app_id = $1 AND target_type = $2 AND target_id = $3 AND target_snapshot IS NOT NULL ORDER BY created_at DESC, id DESC LIMIT 1",
+    )
+    .bind(app_id)
+    .bind(target_type)
+    .bind(target_id)
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or(ApiError::NotFound("moderation target"))?;
+    let snapshot =
+        serde_json::from_str::<Value>(&stored_snapshot).map_err(|_| ApiError::Internal)?;
     Ok(Json(snapshot))
 }
 
