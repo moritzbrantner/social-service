@@ -67,15 +67,7 @@ async fn block_creation_serializes_conversation_reaction_and_vote_writes() {
         format!("/v1/reactions/post/{post_id}/like"),
         format!("/v1/votes/post/{post_id}/up"),
     ] {
-        let response = send(
-            &state,
-            Method::PUT,
-            &uri,
-            app_id,
-            profileless_user,
-            None,
-        )
-        .await;
+        let response = send(&state, Method::PUT, &uri, app_id, profileless_user, None).await;
         assert_eq!(
             response.status(),
             StatusCode::NOT_FOUND,
@@ -100,19 +92,20 @@ async fn block_creation_serializes_conversation_reaction_and_vote_writes() {
     wait_for_pair_lock_waiter(&pool).await;
     insert_block(&mut block_tx, app_id, bob, alice).await;
     block_tx.commit().await.expect("block commit");
-    let response = conversation.await.expect("conversation request should complete");
+    let response = conversation
+        .await
+        .expect("conversation request should complete");
     assert_eq!(
         response.status(),
         StatusCode::BAD_REQUEST,
         "a conversation that passed its initial checks must still observe a concurrently committed block"
     );
-    let conversation_count = sqlx::query_scalar::<_, i64>(
-        "SELECT count(*) FROM conversations WHERE app_id = $1",
-    )
-    .bind(app_id)
-    .fetch_one(&pool)
-    .await
-    .expect("conversation count");
+    let conversation_count =
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM conversations WHERE app_id = $1")
+            .bind(app_id)
+            .fetch_one(&pool)
+            .await
+            .expect("conversation count");
     assert_eq!(conversation_count, 0);
     clear_block(&pool, app_id, bob, alice).await;
 
