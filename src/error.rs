@@ -20,6 +20,8 @@ pub enum ApiError {
     FeatureDisabled(Feature),
     #[error("database error")]
     Database(#[from] sqlx::Error),
+    #[error("internal error")]
+    Internal,
 }
 
 #[derive(Serialize)]
@@ -37,6 +39,10 @@ impl IntoResponse for ApiError {
             Self::FeatureDisabled(_) => (StatusCode::NOT_FOUND, "feature_disabled"),
             Self::Database(_) => {
                 tracing::error!(error = ?self, "database request failed");
+                (StatusCode::INTERNAL_SERVER_ERROR, "internal_error")
+            }
+            Self::Internal => {
+                tracing::error!(error = ?self, "internal request failed");
                 (StatusCode::INTERNAL_SERVER_ERROR, "internal_error")
             }
         };
