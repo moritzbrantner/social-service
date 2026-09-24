@@ -229,6 +229,20 @@ impl ModerationActor {
 pub async fn actor(state: &AppState, headers: &HeaderMap) -> Result<ModerationActor, ApiError> {
     state.features.require(Feature::Moderation)?;
     let context = RequestContext::from_headers(headers)?;
+    let account_state = sqlx::query_scalar::<_, AccountState>(
+        "SELECT state FROM moderation_account_states WHERE app_id = $1 AND user_id = $2",
+    )
+    .bind(context.app_id.0)
+    .bind(context.user_id.0)
+    .fetch_optional(&state.pool)
+    .await?;
+    if matches!(
+        account_state,
+        Some(AccountState::Suspended | AccountState::Banned)
+    ) {
+        return Err(ApiError::Forbidden);
+    }
+
     let role = sqlx::query_scalar::<_, Role>(
         "SELECT role FROM moderation_role_bindings WHERE app_id = $1 AND user_id = $2",
     )
