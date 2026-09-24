@@ -10,6 +10,7 @@ use crate::{
     error::ApiError,
     features::Feature,
     models::{ReactionCount, ReactionSummary, ReactionTargetType, ReactionType},
+    relationships::{lock_user_pair, users_are_blocked_in_transaction},
     state::AppState,
 };
 
@@ -69,7 +70,7 @@ pub async fn put_reaction(
     state.features.require(Feature::Reactions)?;
     let context = RequestContext::from_headers(&headers)?;
     ensure_actor_active(&state, context.app_id.0, context.user_id.0).await?;
-    ensure_target_visible(
+    let target_author_id = ensure_target_visible(
         &state,
         context.app_id.0,
         target_type,
@@ -82,6 +83,30 @@ pub async fn put_reaction(
         ReactionTargetType::Post => (Some(target_id), None),
         ReactionTargetType::Comment => (None, Some(target_id)),
     };
+    let mut transaction = state.pool.begin().await?;
+    if state.features.is_enabled(Feature::Blocks) && target_author_id != context.user_id.0 {
+        lock_user_pair(
+            &mut transaction,
+            context.app_id.0,
+            context.user_id.0,
+            target_author_id,
+        )
+        .await?;
+        if users_are_blocked_in_transaction(
+            &mut transaction,
+            context.app_id.0,
+            context.user_id.0,
+            target_author_id,
+        )
+        .await?
+        {
+            let resource = match target_type {
+                ReactionTargetType::Post => "post",
+                ReactionTargetType::Comment => "comment",
+            };
+            return Err(ApiError::NotFound(resource));
+        }
+    }
     sqlx::query(
         "INSERT INTO reactions (app_id, target_type, target_id, post_id, comment_id, user_id, reaction_type) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",
     )
@@ -92,8 +117,9 @@ pub async fn put_reaction(
     .bind(comment_id)
     .bind(context.user_id.0)
     .bind(reaction_type)
-    .execute(&state.pool)
+    .execute(&mut *transaction)
     .await?;
+    transaction.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -123,12 +149,9 @@ async fn ensure_target_visible(
     target_type: ReactionTargetType,
     target_id: Uuid,
     viewer_id: Option<Uuid>,
-) -> Result<(), ApiError> {
+) -> Result<Uuid, ApiError> {
     match target_type {
-        ReactionTargetType::Post => {
-            ensure_post_visible(state, app_id, target_id, viewer_id).await?;
-            Ok(())
-        }
+        ReactionTargetType::Post => ensure_post_visible(state, app_id, target_id, viewer_id).await,
         ReactionTargetType::Comment => {
             ensure_comment_visible(state, app_id, target_id, viewer_id).await
         }
