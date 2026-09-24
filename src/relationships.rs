@@ -76,6 +76,45 @@ pub async fn lock_user_pair(
     Ok(())
 }
 
+pub async fn lock_users(
+    transaction: &mut Transaction<'_, Postgres>,
+    app_id: Uuid,
+    user_ids: &[Uuid],
+) -> Result<(), ApiError> {
+    if user_ids.is_empty() {
+        return Ok(());
+    }
+
+    let mut user_ids = user_ids.to_vec();
+    user_ids.sort_unstable();
+    user_ids.dedup();
+    sqlx::query(
+        "SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':user:' || locked_user.user_id::text, 0)) FROM unnest($2::uuid[]) AS locked_user(user_id) ORDER BY locked_user.user_id ASC",
+    )
+    .bind(app_id)
+    .bind(user_ids)
+    .execute(&mut **transaction)
+    .await?;
+    Ok(())
+}
+
+pub async fn members_have_block_in_transaction(
+    transaction: &mut Transaction<'_, Postgres>,
+    app_id: Uuid,
+    member_ids: &[Uuid],
+) -> Result<bool, ApiError> {
+    if member_ids.len() < 2 {
+        return Ok(false);
+    }
+    Ok(sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM user_blocks b WHERE b.app_id = $1 AND b.blocker_id = ANY($2) AND b.blocked_id = ANY($2))",
+    )
+    .bind(app_id)
+    .bind(member_ids)
+    .fetch_one(&mut **transaction)
+    .await?)
+}
+
 pub async fn members_have_block(
     state: &AppState,
     app_id: Uuid,

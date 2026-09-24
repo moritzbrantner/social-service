@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Postgres, Transaction, Type};
 use uuid::Uuid;
 
-use crate::{auth::RequestContext, error::ApiError, features::Feature, state::AppState};
+use crate::{
+    auth::RequestContext, error::ApiError, features::Feature, relationships::lock_users,
+    state::AppState,
+};
 
 const CAPABILITIES: HeaderName = HeaderName::from_static("x-social-moderation-capabilities");
 const REQUEST_ID: HeaderName = HeaderName::from_static("x-request-id");
@@ -205,6 +208,7 @@ impl Capability {
 pub struct ModerationActor {
     pub context: RequestContext,
     pub role: Option<Role>,
+    trusted_capabilities: HashSet<Capability>,
     capabilities: HashSet<Capability>,
 }
 
@@ -229,6 +233,20 @@ impl ModerationActor {
 pub async fn actor(state: &AppState, headers: &HeaderMap) -> Result<ModerationActor, ApiError> {
     state.features.require(Feature::Moderation)?;
     let context = RequestContext::from_headers(headers)?;
+    let account_state = sqlx::query_scalar::<_, AccountState>(
+        "SELECT state FROM moderation_account_states WHERE app_id = $1 AND user_id = $2",
+    )
+    .bind(context.app_id.0)
+    .bind(context.user_id.0)
+    .fetch_optional(&state.pool)
+    .await?;
+    if matches!(
+        account_state,
+        Some(AccountState::Suspended | AccountState::Banned)
+    ) {
+        return Err(ApiError::Forbidden);
+    }
+
     let role = sqlx::query_scalar::<_, Role>(
         "SELECT role FROM moderation_role_bindings WHERE app_id = $1 AND user_id = $2",
     )
@@ -237,7 +255,8 @@ pub async fn actor(state: &AppState, headers: &HeaderMap) -> Result<ModerationAc
     .fetch_optional(&state.pool)
     .await?;
 
-    let mut capabilities = trusted_capabilities(headers)?;
+    let trusted_capabilities = trusted_capabilities(headers)?;
+    let mut capabilities = trusted_capabilities.iter().copied().collect::<HashSet<_>>();
     if let Some(role) = role {
         capabilities.extend(role.capabilities());
     }
@@ -245,8 +264,52 @@ pub async fn actor(state: &AppState, headers: &HeaderMap) -> Result<ModerationAc
     Ok(ModerationActor {
         context,
         role,
+        trusted_capabilities,
         capabilities,
     })
+}
+
+pub async fn authorize_mutation(
+    transaction: &mut Transaction<'_, Postgres>,
+    actor: &ModerationActor,
+    capability: Capability,
+    authority_subjects: &[Uuid],
+) -> Result<(), ApiError> {
+    let mut user_ids = Vec::with_capacity(authority_subjects.len() + 1);
+    user_ids.push(actor.context.user_id.0);
+    user_ids.extend_from_slice(authority_subjects);
+    lock_users(transaction, actor.context.app_id.0, &user_ids).await?;
+
+    let account_state = sqlx::query_scalar::<_, AccountState>(
+        "SELECT state FROM moderation_account_states WHERE app_id = $1 AND user_id = $2",
+    )
+    .bind(actor.context.app_id.0)
+    .bind(actor.context.user_id.0)
+    .fetch_optional(&mut **transaction)
+    .await?;
+    if matches!(
+        account_state,
+        Some(AccountState::Suspended | AccountState::Banned)
+    ) {
+        return Err(ApiError::Forbidden);
+    }
+
+    if actor.trusted_capabilities.contains(&capability) {
+        return Ok(());
+    }
+
+    let role = sqlx::query_scalar::<_, Role>(
+        "SELECT role FROM moderation_role_bindings WHERE app_id = $1 AND user_id = $2",
+    )
+    .bind(actor.context.app_id.0)
+    .bind(actor.context.user_id.0)
+    .fetch_optional(&mut **transaction)
+    .await?;
+    if role.is_some_and(|role| role.capabilities().contains(&capability)) {
+        Ok(())
+    } else {
+        Err(ApiError::Forbidden)
+    }
 }
 
 pub async fn ensure_user_can(

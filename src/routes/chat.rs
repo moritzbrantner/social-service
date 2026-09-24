@@ -21,7 +21,10 @@ use crate::{
         RestrictionScope, TargetType, ensure_account_visible, ensure_content_visible,
         ensure_user_can,
     },
-    relationships::{ensure_direct_conversation_unblocked, ensure_not_blocked, members_have_block},
+    relationships::{
+        ensure_direct_conversation_unblocked, ensure_not_blocked, lock_users,
+        members_have_block_in_transaction,
+    },
     routes::posts::{attach_media, load_media_ids_batch},
     state::AppState,
 };
@@ -60,13 +63,14 @@ pub async fn create_conversation(
             "a conversation must contain 2-100 unique members".to_owned(),
         ));
     }
+    let mut transaction = state.pool.begin().await?;
     if state.features.is_enabled(Feature::Moderation) {
         let unavailable = sqlx::query_scalar::<_, bool>(
             "SELECT EXISTS(SELECT 1 FROM moderation_account_states WHERE app_id = $1 AND user_id = ANY($2) AND state IN ('suspended', 'banned'))",
         )
         .bind(context.app_id.0)
         .bind(&member_ids)
-        .fetch_one(&state.pool)
+        .fetch_one(&mut *transaction)
         .await?;
         if unavailable {
             return Err(ApiError::BadRequest(
@@ -74,13 +78,17 @@ pub async fn create_conversation(
             ));
         }
     }
-    if members_have_block(&state, context.app_id.0, &member_ids).await? {
-        return Err(ApiError::BadRequest(
-            "conversation members must be mutually available in this app".to_owned(),
-        ));
+    if state.features.is_enabled(Feature::Blocks) {
+        lock_users(&mut transaction, context.app_id.0, &member_ids).await?;
+        if members_have_block_in_transaction(&mut transaction, context.app_id.0, &member_ids)
+            .await?
+        {
+            return Err(ApiError::BadRequest(
+                "conversation members must be mutually available in this app".to_owned(),
+            ));
+        }
     }
 
-    let mut transaction = state.pool.begin().await?;
     let row = sqlx::query_as::<_, ConversationRow>(
         "INSERT INTO conversations (id, app_id) VALUES ($1, $2) RETURNING id, created_at, updated_at, version",
     )

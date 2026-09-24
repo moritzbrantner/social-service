@@ -11,7 +11,9 @@ use uuid::Uuid;
 
 use crate::{
     error::ApiError,
-    moderation::{Capability, TargetType, actor, correlation_id, target_exists},
+    moderation::{
+        Capability, TargetType, actor, authorize_mutation, correlation_id, target_exists,
+    },
     state::AppState,
 };
 
@@ -127,6 +129,8 @@ pub async fn create_signal(
     let observed_at = input.observed_at.unwrap_or_else(Utc::now);
     let correlation = correlation_id(&headers)?;
     let signal_id = Uuid::new_v4();
+    let mut transaction = state.pool.begin().await?;
+    authorize_mutation(&mut transaction, &actor, Capability::SignalsWrite, &[]).await?;
     let inserted = sqlx::query_as::<_, ModerationSignal>(
         "INSERT INTO moderation_signals (id, app_id, case_id, target_type, target_id, source, kind, severity, confidence, model, model_version, evidence, idempotency_key, observed_at, ingested_by, correlation_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) ON CONFLICT (app_id, source, idempotency_key) DO NOTHING RETURNING id, case_id, target_type, target_id, source, kind, severity, confidence, model, model_version, evidence, idempotency_key, observed_at, ingested_by, correlation_id, created_at",
     )
@@ -146,7 +150,7 @@ pub async fn create_signal(
     .bind(observed_at)
     .bind(actor.context.user_id.0)
     .bind(correlation.as_deref())
-    .fetch_optional(&state.pool)
+    .fetch_optional(&mut *transaction)
     .await?;
 
     let signal = if let Some(signal) = inserted {
@@ -158,7 +162,7 @@ pub async fn create_signal(
         .bind(app_id)
         .bind(source)
         .bind(idempotency_key)
-        .fetch_one(&state.pool)
+        .fetch_one(&mut *transaction)
         .await?;
 
         if existing.case_id != input.case_id
@@ -179,6 +183,7 @@ pub async fn create_signal(
         existing
     };
 
+    transaction.commit().await?;
     Ok(Json(signal))
 }
 
