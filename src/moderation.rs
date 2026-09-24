@@ -6,7 +6,7 @@ use sqlx::{Postgres, Transaction, Type};
 use uuid::Uuid;
 
 use crate::{
-    auth::RequestContext, error::ApiError, features::Feature, relationships::lock_users,
+    auth::RequestContext, error::ApiError, features::Feature, locking::lock_users,
     state::AppState,
 };
 
