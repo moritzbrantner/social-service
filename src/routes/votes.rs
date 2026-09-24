@@ -10,6 +10,7 @@ use crate::{
     error::ApiError,
     features::Feature,
     models::{VoteSummary, VoteTargetType, VoteValue},
+    relationships::{lock_user_pair, users_are_blocked_in_transaction},
     state::AppState,
 };
 
@@ -71,7 +72,7 @@ pub async fn put_vote(
     state.features.require(Feature::Votes)?;
     let context = RequestContext::from_headers(&headers)?;
     ensure_actor_active(&state, context.app_id.0, context.user_id.0).await?;
-    ensure_target_visible(
+    let target_author_id = ensure_target_visible(
         &state,
         context.app_id.0,
         target_type,
@@ -84,6 +85,30 @@ pub async fn put_vote(
         VoteTargetType::Post => (Some(target_id), None),
         VoteTargetType::Comment => (None, Some(target_id)),
     };
+    let mut transaction = state.pool.begin().await?;
+    if state.features.is_enabled(Feature::Blocks) && target_author_id != context.user_id.0 {
+        lock_user_pair(
+            &mut transaction,
+            context.app_id.0,
+            context.user_id.0,
+            target_author_id,
+        )
+        .await?;
+        if users_are_blocked_in_transaction(
+            &mut transaction,
+            context.app_id.0,
+            context.user_id.0,
+            target_author_id,
+        )
+        .await?
+        {
+            let resource = match target_type {
+                VoteTargetType::Post => "post",
+                VoteTargetType::Comment => "comment",
+            };
+            return Err(ApiError::NotFound(resource));
+        }
+    }
     sqlx::query(
         "INSERT INTO votes (app_id, target_type, target_id, post_id, comment_id, user_id, vote_value) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (app_id, target_type, target_id, user_id) DO UPDATE SET vote_value = EXCLUDED.vote_value, updated_at = now() WHERE votes.vote_value IS DISTINCT FROM EXCLUDED.vote_value",
     )
@@ -94,8 +119,9 @@ pub async fn put_vote(
     .bind(comment_id)
     .bind(context.user_id.0)
     .bind(vote_value)
-    .execute(&state.pool)
+    .execute(&mut *transaction)
     .await?;
+    transaction.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -124,12 +150,9 @@ async fn ensure_target_visible(
     target_type: VoteTargetType,
     target_id: Uuid,
     viewer_id: Option<Uuid>,
-) -> Result<(), ApiError> {
+) -> Result<Uuid, ApiError> {
     match target_type {
-        VoteTargetType::Post => {
-            ensure_post_visible(state, app_id, target_id, viewer_id).await?;
-            Ok(())
-        }
+        VoteTargetType::Post => ensure_post_visible(state, app_id, target_id, viewer_id).await,
         VoteTargetType::Comment => {
             ensure_comment_visible(state, app_id, target_id, viewer_id).await
         }
