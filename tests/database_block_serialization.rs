@@ -187,9 +187,7 @@ async fn block_creation_serializes_conversation_reaction_and_vote_writes() {
     .expect("vote count");
     assert_eq!(vote_count, 0);
 
-    let hundred_members = (1_u128..=100)
-        .map(Uuid::from_u128)
-        .collect::<Vec<_>>();
+    let hundred_members = (1_u128..=100).map(Uuid::from_u128).collect::<Vec<_>>();
     let mut bounded_lock_tx = pool.begin().await.expect("bounded lock transaction");
     lock_users(&mut bounded_lock_tx, app_id, &hundred_members)
         .await
