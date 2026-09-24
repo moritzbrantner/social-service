@@ -381,14 +381,10 @@ pub async fn create_report(
         ));
     }
     ensure_reportable_target(&state, context, input.target_type, input.target_id).await?;
-    let target_snapshot = load_target_snapshot(
-        &state,
-        context.app_id.0,
-        input.target_type,
-        input.target_id,
-    )
-    .await?
-    .ok_or(ApiError::NotFound("moderation target"))?;
+    let target_snapshot =
+        load_target_snapshot(&state, context.app_id.0, input.target_type, input.target_id)
+            .await?
+            .ok_or(ApiError::NotFound("moderation target"))?;
     let target_snapshot = snapshot_json(&target_snapshot)?;
 
     let case_id = Uuid::new_v4();
