@@ -22,7 +22,7 @@ use crate::{
         ensure_user_can,
     },
     relationships::{
-        ensure_direct_conversation_unblocked, ensure_not_blocked, lock_user_pairs,
+        ensure_direct_conversation_unblocked, ensure_not_blocked, lock_users,
         members_have_block_in_transaction,
     },
     routes::posts::{attach_media, load_media_ids_batch},
@@ -79,7 +79,7 @@ pub async fn create_conversation(
         }
     }
     if state.features.is_enabled(Feature::Blocks) {
-        lock_user_pairs(&mut transaction, context.app_id.0, &member_ids).await?;
+        lock_users(&mut transaction, context.app_id.0, &member_ids).await?;
         if members_have_block_in_transaction(&mut transaction, context.app_id.0, &member_ids)
             .await?
         {
