@@ -62,6 +62,27 @@ async fn block_creation_serializes_conversation_reaction_and_vote_writes() {
     .await;
     let post_id = Uuid::parse_str(post["id"].as_str().expect("post id")).expect("post UUID");
 
+    let profileless_user = Uuid::new_v4();
+    for uri in [
+        format!("/v1/reactions/post/{post_id}/like"),
+        format!("/v1/votes/post/{post_id}/up"),
+    ] {
+        let response = send(
+            &state,
+            Method::PUT,
+            &uri,
+            app_id,
+            profileless_user,
+            None,
+        )
+        .await;
+        assert_eq!(
+            response.status(),
+            StatusCode::NOT_FOUND,
+            "feedback writes require an established social profile instead of leaking a database foreign-key error"
+        );
+    }
+
     let mut block_tx = pool.begin().await.expect("block transaction");
     lock_pair(&mut block_tx, app_id, alice, bob).await;
     let request_state = state.clone();
