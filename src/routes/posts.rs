@@ -13,6 +13,7 @@ use crate::{
     auth::{RequestContext, app_id, optional_user_id},
     error::ApiError,
     features::Feature,
+    locking::lock_user_pair,
     models::{
         Comment, CreateComment, CreatePost, FollowEdge, LimitQuery, Post, PostAudience, PostRow,
     },
