@@ -76,6 +76,45 @@ pub async fn lock_user_pair(
     Ok(())
 }
 
+pub async fn lock_user_pairs(
+    transaction: &mut Transaction<'_, Postgres>,
+    app_id: Uuid,
+    member_ids: &[Uuid],
+) -> Result<(), ApiError> {
+    if member_ids.len() < 2 {
+        return Ok(());
+    }
+
+    let mut member_ids = member_ids.to_vec();
+    member_ids.sort_unstable();
+    member_ids.dedup();
+    sqlx::query(
+        "SELECT social_lock_user_pair($1, left_member.user_id, right_member.user_id) FROM unnest($2::uuid[]) WITH ORDINALITY AS left_member(user_id, position) JOIN unnest($2::uuid[]) WITH ORDINALITY AS right_member(user_id, position) ON left_member.position < right_member.position ORDER BY left_member.user_id ASC, right_member.user_id ASC",
+    )
+    .bind(app_id)
+    .bind(member_ids)
+    .execute(&mut **transaction)
+    .await?;
+    Ok(())
+}
+
+pub async fn members_have_block_in_transaction(
+    transaction: &mut Transaction<'_, Postgres>,
+    app_id: Uuid,
+    member_ids: &[Uuid],
+) -> Result<bool, ApiError> {
+    if member_ids.len() < 2 {
+        return Ok(false);
+    }
+    Ok(sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM user_blocks b WHERE b.app_id = $1 AND b.blocker_id = ANY($2) AND b.blocked_id = ANY($2))",
+    )
+    .bind(app_id)
+    .bind(member_ids)
+    .fetch_one(&mut **transaction)
+    .await?)
+}
+
 pub async fn members_have_block(
     state: &AppState,
     app_id: Uuid,
