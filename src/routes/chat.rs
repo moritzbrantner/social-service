@@ -13,6 +13,7 @@ use crate::{
     auth::RequestContext,
     error::ApiError,
     features::Feature,
+    locking::lock_users,
     models::{
         Conversation, ConversationRow, CreateConversation, CreateMessage, LimitQuery, Message,
         MessageRow, PinnedMessage,
@@ -21,10 +22,8 @@ use crate::{
         RestrictionScope, TargetType, ensure_account_visible, ensure_content_visible,
         ensure_user_can,
     },
-    locking::lock_users,
     relationships::{
-        ensure_direct_conversation_unblocked, ensure_not_blocked,
-        members_have_block_in_transaction,
+        ensure_direct_conversation_unblocked, ensure_not_blocked, members_have_block_in_transaction,
     },
     routes::posts::{attach_media, load_media_ids_batch},
     state::AppState,
