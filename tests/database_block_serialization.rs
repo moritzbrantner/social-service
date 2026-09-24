@@ -7,7 +7,7 @@ use axum::{
 };
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
-use social_service::{app, features::FeatureSet, state::AppState};
+use social_service::{app, features::FeatureSet, relationships::lock_users, state::AppState};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use tower::ServiceExt;
 use uuid::Uuid;
@@ -76,6 +76,9 @@ async fn block_creation_serializes_conversation_reaction_and_vote_writes() {
     }
 
     let mut block_tx = pool.begin().await.expect("block transaction");
+    lock_users(&mut block_tx, app_id, &[alice, bob])
+        .await
+        .expect("block user locks");
     lock_pair(&mut block_tx, app_id, alice, bob).await;
     let request_state = state.clone();
     let conversation = tokio::spawn(async move {
@@ -89,7 +92,7 @@ async fn block_creation_serializes_conversation_reaction_and_vote_writes() {
         )
         .await
     });
-    wait_for_pair_lock_waiter(&pool).await;
+    wait_for_lock_waiter(&pool).await;
     insert_block(&mut block_tx, app_id, bob, alice).await;
     block_tx.commit().await.expect("block commit");
     let response = conversation
@@ -110,6 +113,9 @@ async fn block_creation_serializes_conversation_reaction_and_vote_writes() {
     clear_block(&pool, app_id, bob, alice).await;
 
     let mut block_tx = pool.begin().await.expect("block transaction");
+    lock_users(&mut block_tx, app_id, &[alice, bob])
+        .await
+        .expect("block user locks");
     lock_pair(&mut block_tx, app_id, alice, bob).await;
     let request_state = state.clone();
     let reaction = tokio::spawn(async move {
@@ -123,7 +129,7 @@ async fn block_creation_serializes_conversation_reaction_and_vote_writes() {
         )
         .await
     });
-    wait_for_pair_lock_waiter(&pool).await;
+    wait_for_lock_waiter(&pool).await;
     insert_block(&mut block_tx, app_id, bob, alice).await;
     block_tx.commit().await.expect("block commit");
     let response = reaction.await.expect("reaction request should complete");
@@ -145,6 +151,9 @@ async fn block_creation_serializes_conversation_reaction_and_vote_writes() {
     clear_block(&pool, app_id, bob, alice).await;
 
     let mut block_tx = pool.begin().await.expect("block transaction");
+    lock_users(&mut block_tx, app_id, &[alice, bob])
+        .await
+        .expect("block user locks");
     lock_pair(&mut block_tx, app_id, alice, bob).await;
     let request_state = state.clone();
     let vote = tokio::spawn(async move {
@@ -158,7 +167,7 @@ async fn block_creation_serializes_conversation_reaction_and_vote_writes() {
         )
         .await
     });
-    wait_for_pair_lock_waiter(&pool).await;
+    wait_for_lock_waiter(&pool).await;
     insert_block(&mut block_tx, app_id, bob, alice).await;
     block_tx.commit().await.expect("block commit");
     let response = vote.await.expect("vote request should complete");
@@ -177,6 +186,28 @@ async fn block_creation_serializes_conversation_reaction_and_vote_writes() {
     .await
     .expect("vote count");
     assert_eq!(vote_count, 0);
+
+    let hundred_members = (1_u128..=100)
+        .map(Uuid::from_u128)
+        .collect::<Vec<_>>();
+    let mut bounded_lock_tx = pool.begin().await.expect("bounded lock transaction");
+    lock_users(&mut bounded_lock_tx, app_id, &hundred_members)
+        .await
+        .expect("100-member user lock set");
+    let advisory_lock_count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'advisory' AND granted",
+    )
+    .fetch_one(&mut *bounded_lock_tx)
+    .await
+    .expect("advisory lock count");
+    assert_eq!(
+        advisory_lock_count, 100,
+        "a 100-member conversation must consume one advisory lock per user, not one per pair"
+    );
+    bounded_lock_tx
+        .rollback()
+        .await
+        .expect("bounded lock rollback");
 }
 
 async fn lock_pair(
@@ -223,11 +254,11 @@ async fn clear_block(pool: &PgPool, app_id: Uuid, blocker_id: Uuid, blocked_id: 
     .expect("block cleanup");
 }
 
-async fn wait_for_pair_lock_waiter(pool: &PgPool) {
+async fn wait_for_lock_waiter(pool: &PgPool) {
     tokio::time::timeout(Duration::from_secs(5), async {
         loop {
             let waiting = sqlx::query_scalar::<_, bool>(
-                "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid() AND wait_event_type = 'Lock' AND query LIKE '%social_lock_user_pair%')",
+                "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid() AND wait_event_type = 'Lock' AND (query LIKE '%social_lock_user_pair%' OR query LIKE '%:user:%'))",
             )
             .fetch_one(pool)
             .await
@@ -239,7 +270,7 @@ async fn wait_for_pair_lock_waiter(pool: &PgPool) {
         }
     })
     .await
-    .expect("request should reach the shared user-pair lock before the block commits");
+    .expect("request should reach a shared safety lock before the block commits");
 }
 
 async fn send(
