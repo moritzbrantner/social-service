@@ -174,7 +174,7 @@ pub enum TargetSnapshot {
 }
 
 async fn load_target_snapshot(
-    state: &AppState,
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     app_id: Uuid,
     target_type: TargetType,
     target_id: Uuid,
@@ -186,7 +186,7 @@ async fn load_target_snapshot(
             )
             .bind(app_id)
             .bind(target_id)
-            .fetch_optional(&state.pool)
+            .fetch_optional(&mut **transaction)
             .await?
             .map(TargetSnapshot::Profile)
         }
@@ -208,7 +208,7 @@ async fn load_target_snapshot(
             )
             .bind(app_id)
             .bind(target_id)
-            .fetch_optional(&state.pool)
+            .fetch_optional(&mut **transaction)
             .await?;
             if let Some((
                 id,
@@ -226,7 +226,7 @@ async fn load_target_snapshot(
                 )
                 .bind(app_id)
                 .bind(target_id)
-                .fetch_all(&state.pool)
+                .fetch_all(&mut **transaction)
                 .await?;
                 Some(TargetSnapshot::Post(Post {
                     row: PostRow {
@@ -250,7 +250,7 @@ async fn load_target_snapshot(
         )
         .bind(app_id)
         .bind(target_id)
-        .fetch_optional(&state.pool)
+        .fetch_optional(&mut **transaction)
         .await?
         .map(TargetSnapshot::Comment),
         TargetType::Media => sqlx::query_as::<_, MediaAsset>(
@@ -258,7 +258,7 @@ async fn load_target_snapshot(
         )
         .bind(app_id)
         .bind(target_id)
-        .fetch_optional(&state.pool)
+        .fetch_optional(&mut **transaction)
         .await?
         .map(TargetSnapshot::Media),
         TargetType::Group => {
@@ -267,7 +267,7 @@ async fn load_target_snapshot(
             )
             .bind(app_id)
             .bind(target_id)
-            .fetch_optional(&state.pool)
+            .fetch_optional(&mut **transaction)
             .await?;
             if let Some(row) = row {
                 let members = sqlx::query_as::<_, GroupMember>(
@@ -275,14 +275,14 @@ async fn load_target_snapshot(
                 )
                 .bind(app_id)
                 .bind(target_id)
-                .fetch_all(&state.pool)
+                .fetch_all(&mut **transaction)
                 .await?;
                 let chat_conversation_id = sqlx::query_scalar::<_, Uuid>(
                     "SELECT conversation_id FROM group_conversations WHERE app_id = $1 AND group_id = $2",
                 )
                 .bind(app_id)
                 .bind(target_id)
-                .fetch_optional(&state.pool)
+                .fetch_optional(&mut **transaction)
                 .await?;
                 Some(TargetSnapshot::Group(Group {
                     row,
@@ -299,7 +299,7 @@ async fn load_target_snapshot(
             )
             .bind(app_id)
             .bind(target_id)
-            .fetch_optional(&state.pool)
+            .fetch_optional(&mut **transaction)
             .await?;
             if let Some(row) = row {
                 let member_ids = sqlx::query_scalar::<_, Uuid>(
@@ -307,7 +307,7 @@ async fn load_target_snapshot(
                 )
                 .bind(app_id)
                 .bind(target_id)
-                .fetch_all(&state.pool)
+                .fetch_all(&mut **transaction)
                 .await?;
                 Some(TargetSnapshot::Conversation(Conversation { row, member_ids }))
             } else {
@@ -320,7 +320,7 @@ async fn load_target_snapshot(
             )
             .bind(app_id)
             .bind(target_id)
-            .fetch_optional(&state.pool)
+            .fetch_optional(&mut **transaction)
             .await?;
             if let Some(row) = row {
                 let media_ids = sqlx::query_scalar::<_, Uuid>(
@@ -328,7 +328,7 @@ async fn load_target_snapshot(
                 )
                 .bind(app_id)
                 .bind(target_id)
-                .fetch_all(&state.pool)
+                .fetch_all(&mut **transaction)
                 .await?;
                 Some(TargetSnapshot::Message(Message { row, media_ids }))
             } else {
@@ -380,16 +380,26 @@ pub async fn create_report(
             "idempotencyKey must contain at most 128 characters".to_owned(),
         ));
     }
+    let mut transaction = state.pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+        .execute(&mut *transaction)
+        .await?;
+    sqlx::query_scalar::<_, i32>("SELECT 1")
+        .fetch_one(&mut *transaction)
+        .await?;
     ensure_reportable_target(&state, context, input.target_type, input.target_id).await?;
-    let target_snapshot =
-        load_target_snapshot(&state, context.app_id.0, input.target_type, input.target_id)
-            .await?
-            .ok_or(ApiError::NotFound("moderation target"))?;
+    let target_snapshot = load_target_snapshot(
+        &mut transaction,
+        context.app_id.0,
+        input.target_type,
+        input.target_id,
+    )
+    .await?
+    .ok_or(ApiError::NotFound("moderation target"))?;
     let target_snapshot = snapshot_json(&target_snapshot)?;
 
     let case_id = Uuid::new_v4();
     let report_id = Uuid::new_v4();
-    let mut transaction = state.pool.begin().await?;
     sqlx::query(
         "INSERT INTO moderation_cases (id, app_id, target_type, target_id, opened_by, target_snapshot) VALUES ($1, $2, $3, $4, $5, $6::jsonb)",
     )
@@ -492,8 +502,15 @@ pub async fn review_target(
         .require(Capability::ReportsRead)
         .or_else(|_| actor.require(Capability::ContentModerate))?;
     let app_id = actor.context.app_id.0;
+    let mut transaction = state.pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+        .execute(&mut *transaction)
+        .await?;
 
-    if let Some(snapshot) = load_target_snapshot(&state, app_id, target_type, target_id).await? {
+    if let Some(snapshot) =
+        load_target_snapshot(&mut transaction, app_id, target_type, target_id).await?
+    {
+        transaction.commit().await?;
         return Ok(Json(snapshot_value(&snapshot)?));
     }
 
@@ -503,9 +520,10 @@ pub async fn review_target(
     .bind(app_id)
     .bind(target_type)
     .bind(target_id)
-    .fetch_optional(&state.pool)
+    .fetch_optional(&mut *transaction)
     .await?
     .ok_or(ApiError::NotFound("moderation target"))?;
+    transaction.commit().await?;
     let snapshot =
         serde_json::from_str::<Value>(&stored_snapshot).map_err(|_| ApiError::Internal)?;
     Ok(Json(snapshot))
