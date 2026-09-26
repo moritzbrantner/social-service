@@ -17,7 +17,9 @@ One modular-monolith social service, currently deployed as a single Rust/Axum HT
 - PostgreSQL persistence scoped by `X-App-Id`;
 - framework-independent TypeScript clients for app and trusted-moderation consumers.
 
-The service deliberately does **not** own authentication or UI. A trusted application/auth gateway authenticates the request and injects `X-App-Id` and `X-User-Id`. Do not expose the service directly to untrusted clients until a production auth adapter is configured.
+The service deliberately does **not** own authentication or production UI. A trusted application/auth gateway authenticates the request and injects `X-App-Id` and `X-User-Id`. Do not expose the service directly to untrusted clients until a production auth adapter is configured.
+
+The repository does include a static GitHub Pages showcase under `pages/` so people can see what a consumer application might look like. That showcase uses fictional in-memory mock data only, makes no backend requests, and is never imported by the Rust service or TypeScript SDK.
 
 Media uploads are represented as registered media assets in the current baseline. The API already attaches assets to posts and messages; presigned S3-compatible upload support can be added behind the media module without changing those domain relationships.
 
@@ -44,6 +46,17 @@ Docker Compose is used for local infrastructure. Today it runs PostgreSQL; futur
 `docs/groups-and-commands.md` records the group/conversation ownership boundary and the structured command boundary used by voice, text, assistant, and automation consumers.
 
 `docs/moderation-signals.md` records the provider-neutral evidence boundary for classifiers, heuristics, abuse detectors, and human moderation.
+
+## GitHub Pages showcase
+
+The Pages presentation demonstrates a possible following timeline and chat client without becoming part of the product runtime. Its timeline/chat selection is URL-addressable through `?view=timeline` and `?view=chat`; theme, language, likes, saves, and mock message composition are browser-local presentation behavior only.
+
+```bash
+node --test ./pages/tests/showcase.test.mjs
+node ./pages/build.mjs
+```
+
+The deployment workflow publishes `pages/dist` through the shared Pages workflow. GitHub Pages must be enabled once with **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
 ## Run
 

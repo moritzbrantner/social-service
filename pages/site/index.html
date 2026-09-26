@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="description" content="Conceptual presentation UI for social-service. Static GitHub Pages mock data only." />
+  <title>social-service · product concept</title>
+  <link rel="stylesheet" href="./showcase.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="social-service showcase home">
+      <span class="brand-mark" aria-hidden="true">S</span>
+      <span><strong>social-service</strong><small>Pages showcase</small></span>
+    </a>
+    <nav class="top-nav" aria-label="Project">
+      <a href="?view=timeline" data-view-link="timeline">Timeline</a>
+      <a href="?view=chat" data-view-link="chat">Chat</a>
+      <a href="#architecture">Architecture</a>
+      <a href="https://github.com/moritzbrantner/social-service">Source</a>
+    </nav>
+    <div class="preferences">
+      <label class="language-control">
+        <span class="sr-only">Language</span>
+        <select id="language" aria-label="Language">
+          <option value="en">EN</option>
+          <option value="de">DE</option>
+        </select>
+      </label>
+      <button id="theme-toggle" class="icon-button" type="button" aria-label="Toggle color theme" aria-pressed="true">◐</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="concept-note" aria-labelledby="concept-title">
+      <div>
+        <span class="status-dot" aria-hidden="true"></span>
+        <strong id="concept-title" data-i18n="conceptTitle">Concept UI only</strong>
+        <span data-i18n="conceptBody">Static mock data on GitHub Pages. This is not part of the social-service runtime and does not call a backend.</span>
+      </div>
+      <a href="#architecture" data-i18n="conceptLink">What it demonstrates</a>
+    </section>
+
+    <section class="demo-frame" aria-label="Social application concept">
+      <aside class="app-sidebar" aria-label="Concept application navigation">
+        <div class="profile-summary">
+          <div class="avatar avatar--large" aria-hidden="true">MB</div>
+          <div><strong>Moritz</strong><span>@moritz</span></div>
+        </div>
+        <nav class="app-nav">
+          <a href="?view=timeline" data-view-link="timeline"><span aria-hidden="true">⌂</span><span data-i18n="timeline">Timeline</span></a>
+          <a href="?view=chat" data-view-link="chat"><span aria-hidden="true">◫</span><span data-i18n="messages">Messages</span><span class="nav-count">2</span></a>
+          <button type="button" data-demo-action="notice"><span aria-hidden="true">◎</span><span data-i18n="groups">Groups</span></button>
+          <button type="button" data-demo-action="notice"><span aria-hidden="true">☆</span><span data-i18n="saved">Saved</span></button>
+        </nav>
+        <div class="capability-note">
+          <span data-i18n="poweredBy">Illustrates APIs for</span>
+          <strong>posts · comments · follows · groups · chat</strong>
+        </div>
+      </aside>
+
+      <div class="app-main">
+        <section class="demo-view" data-view="timeline" aria-labelledby="timeline-title">
+          <header class="view-header">
+            <div><p class="eyebrow" data-i18n="following">Following</p><h1 id="timeline-title" data-i18n="timeline">Timeline</h1></div>
+            <button class="secondary-button" type="button" data-demo-action="notice" data-i18n="newPost">New post</button>
+          </header>
+
+          <article class="composer-card">
+            <div class="avatar" aria-hidden="true">MB</div>
+            <div class="composer-copy">
+              <strong data-i18n="composerTitle">Share something with your network</strong>
+              <span data-i18n="composerBody">A real consumer could create public, owner-only, or approved-follower posts.</span>
+            </div>
+            <button class="primary-button" type="button" data-demo-action="notice" data-i18n="compose">Compose</button>
+          </article>
+
+          <div class="feed" aria-label="Example timeline posts">
+            <article class="post-card">
+              <header class="post-header"><div class="avatar avatar--violet" aria-hidden="true">AL</div><div><strong>Alice Lang</strong><span>@alice · 4m</span></div><span class="audience">Public</span></header>
+              <p>Finally shipped the accessibility pass for our settings flow. Keyboard navigation and screen-reader labels are now part of the acceptance criteria.</p>
+              <div class="post-media post-media--diagram" aria-label="Decorative project diagram">
+                <div><strong>Accessible by default</strong><span>Keyboard</span><span>Screen reader</span><span>High contrast</span></div>
+              </div>
+              <footer class="post-actions">
+                <button type="button" data-like aria-pressed="false">♡ <span>24</span></button>
+                <button type="button" data-demo-action="notice">◌ <span>7</span></button>
+                <button type="button" data-save aria-pressed="false">☆ <span class="action-label" data-i18n="save">Save</span></button>
+              </footer>
+            </article>
+
+            <article class="post-card">
+              <header class="post-header"><div class="avatar avatar--amber" aria-hidden="true">JN</div><div><strong>Jonas Neumann</strong><span>@jonas · 18m</span></div><span class="audience audience--followers">Followers</span></header>
+              <p>Small social services are nicer when authorization stays explicit. The client asks; the service decides; derived surfaces reapply current visibility.</p>
+              <blockquote>“Clients consume social state. They do not become social authority.”</blockquote>
+              <footer class="post-actions">
+                <button type="button" data-like aria-pressed="false">♡ <span>13</span></button>
+                <button type="button" data-demo-action="notice">◌ <span>3</span></button>
+                <button type="button" data-save aria-pressed="false">☆ <span class="action-label" data-i18n="save">Save</span></button>
+              </footer>
+            </article>
+          </div>
+        </section>
+
+        <section class="demo-view" data-view="chat" aria-labelledby="chat-title" hidden>
+          <div class="chat-layout">
+            <aside class="conversation-list" aria-label="Example conversations">
+              <header><p class="eyebrow" data-i18n="inbox">Inbox</p><h1 id="chat-title" data-i18n="messages">Messages</h1></header>
+              <button class="conversation is-active" type="button"><span class="avatar avatar--violet" aria-hidden="true">AL</span><span><strong>Alice Lang</strong><small>That makes sense. Let's keep it…</small></span><time>08:41</time></button>
+              <button class="conversation" type="button"><span class="avatar avatar--amber" aria-hidden="true">JN</span><span><strong>Jonas Neumann</strong><small>I added you to the group.</small></span><time>Mon</time></button>
+              <button class="conversation" type="button"><span class="avatar avatar--green" aria-hidden="true">RD</span><span><strong>Release design</strong><small>3 members · linked group chat</small></span><time>Sun</time></button>
+            </aside>
+
+            <section class="chat-panel" aria-label="Conversation with Alice Lang">
+              <header class="chat-header"><div class="avatar avatar--violet" aria-hidden="true">AL</div><div><strong>Alice Lang</strong><span data-i18n="directConversation">Direct conversation</span></div><button class="icon-button" type="button" data-demo-action="notice" aria-label="Conversation details">•••</button></header>
+              <div id="message-stream" class="message-stream" aria-live="polite">
+                <div class="day-marker">Today</div>
+                <div class="message message--other"><span>Could the same backend support a lightweight web app and an Expo client?</span><time>08:38</time></div>
+                <div class="message message--self"><span>Yes. The SDK stays framework-independent; each consumer owns its presentation.</span><time>08:39</time></div>
+                <div class="message message--other"><span>That makes sense. Let's keep the policy decisions in one place.</span><time>08:41</time></div>
+              </div>
+              <form id="mock-message-form" class="message-composer">
+                <label for="mock-message" class="sr-only">Mock message</label>
+                <input id="mock-message" name="message" maxlength="240" autocomplete="off" placeholder="Write a mock message…" />
+                <button class="primary-button" type="submit" data-i18n="send">Send</button>
+              </form>
+            </section>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="architecture" class="architecture-section" aria-labelledby="architecture-title">
+      <div class="section-heading"><p class="eyebrow">social-service</p><h2 id="architecture-title" data-i18n="architectureTitle">What the concept is meant to communicate</h2><p data-i18n="architectureBody">The Pages demo visualizes consumer experiences while keeping every authority boundary in the Rust/PostgreSQL service.</p></div>
+      <div class="architecture-grid">
+        <article><span>01</span><h3>One social authority</h3><p>Profiles, post audiences, relationships, groups, chat, and moderation stay authoritative in the service.</p></article>
+        <article><span>02</span><h3>Many consumers</h3><p>Next.js, Expo, desktop apps, or games can build their own UX over the framework-independent TypeScript client.</p></article>
+        <article><span>03</span><h3>Current policy on every read</h3><p>Timeline, comments, reactions, votes, saves, messages, and pins reapply visibility and safety rules instead of trusting stale client state.</p></article>
+      </div>
+      <div class="flow" aria-label="Concept architecture flow">
+        <div>Consumer UI</div><span>→</span><div>TypeScript SDK / HTTP</div><span>→</span><div class="flow--strong">social-service</div><span>→</span><div>PostgreSQL</div>
+      </div>
+    </section>
+  </main>
+
+  <div id="demo-status" class="toast" role="status" aria-live="polite" hidden></div>
+  <footer class="site-footer"><span>Static presentation surface · no production user data</span><a href="https://github.com/moritzbrantner/social-service/blob/main/README.md">API overview</a></footer>
+  <script type="module" src="./showcase.js"></script>
+</body>
+</html>
