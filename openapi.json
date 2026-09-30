@@ -1,0 +1,1394 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "social-service operation inventory",
+    "version": "0.1.0",
+    "description": "Structural operation inventory, not a full request/response or SDK compatibility specification."
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/blocks": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/blocks/{user_id}": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/conversations": {
+      "post": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      },
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/conversations/{conversation_id}/messages": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/conversations/{conversation_id}/pins": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/conversations/{conversation_id}/pins/{message_id}": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/features": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/follow-approvals": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/follow-approvals/{user_id}": {
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/follow-requests/incoming": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/follow-requests/incoming/{user_id}": {
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/follow-requests/incoming/{user_id}/accept": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/follow-requests/outgoing": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/follow-requests/outgoing/{user_id}": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/follows/{user_id}": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/follows/{user_id}/followers": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/follows/{user_id}/following": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/groups": {
+      "post": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      },
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/groups/{group_id}": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/groups/{group_id}/chat": {
+      "post": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/groups/{group_id}/leave": {
+      "post": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/groups/{group_id}/members/{user_id}": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/groups/{group_id}/members/{user_id}/role": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/media": {
+      "post": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/moderation/audit": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/moderation/cases": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/moderation/cases/{case_id}": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/moderation/content/{target_type}/{target_id}": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "target_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "target_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/moderation/groups/{group_id}/members/{user_id}/remove": {
+      "post": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/moderation/me": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/moderation/roles/{user_id}": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/moderation/signals": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      },
+      "post": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/moderation/users/{user_id}": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/moderation/users/{user_id}/restrictions/{scope}": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/mutes": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/mutes/{user_id}": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/posts": {
+      "post": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/posts/{post_id}": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/posts/{post_id}/comments": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/posts/{post_id}/comments/{comment_id}": {
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "comment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/posts/{post_id}/comments/{comment_id}/replies": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "comment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "comment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/posts/{post_id}/save": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "post_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/profiles/me": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/profiles/{user_id}": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/reactions/{target_type}/{target_id}": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "target_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/reactions/{target_type}/{target_id}/{reaction_type}": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "target_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reaction_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "target_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reaction_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/reports": {
+      "post": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/saved-posts": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/timeline": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        }
+      }
+    },
+    "/v1/votes/{target_type}/{target_id}": {
+      "get": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "target_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "target_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/votes/{target_type}/{target_id}/{vote_value}": {
+      "put": {
+        "description": "Declared operation inventory; request/response schemas are not yet specified.",
+        "responses": {
+          "default": {
+            "description": "Repository-owned HTTP behavior; see mapped executable cases."
+          }
+        },
+        "parameters": [
+          {
+            "name": "target_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vote_value",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

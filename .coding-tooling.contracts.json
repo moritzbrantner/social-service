@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "verifications": [
+    {
+      "id": "http_smoke:health_is_reachable_through_the_composed_router",
+      "surface": "http-operation:GET:%2Fhealth",
+      "kind": "behavioral",
+      "capability": "test",
+      "component": ".",
+      "case": {
+        "id": "http_smoke::health_is_reachable_through_the_composed_router",
+        "behavior": "availability"
+      },
+      "reason": "Public composed router assertions in tests/http_smoke.rs; see docs/http-contract-evidence.md for intentionally untested dimensions."
+    },
+    {
+      "id": "http_smoke:readiness_fails_closed_when_postgres_is_unavailable",
+      "surface": "http-operation:GET:%2Fready",
+      "kind": "behavioral",
+      "capability": "test",
+      "component": ".",
+      "case": {
+        "id": "http_smoke::readiness_fails_closed_when_postgres_is_unavailable",
+        "behavior": "availability"
+      },
+      "reason": "Public composed router assertions in tests/http_smoke.rs; see docs/http-contract-evidence.md for intentionally untested dimensions."
+    },
+    {
+      "id": "http_smoke:readiness_times_out_when_postgres_stalls",
+      "surface": "http-operation:GET:%2Fready",
+      "kind": "behavioral",
+      "capability": "test",
+      "component": ".",
+      "case": {
+        "id": "http_smoke::readiness_times_out_when_postgres_stalls",
+        "behavior": "cancellation"
+      },
+      "reason": "Public composed router assertions in tests/http_smoke.rs; see docs/http-contract-evidence.md for intentionally untested dimensions."
+    },
+    {
+      "id": "http_smoke:feature_configuration_is_exposed_through_the_http_boundary",
+      "surface": "http-operation:GET:%2Fv1%2Ffeatures",
+      "kind": "behavioral",
+      "capability": "test",
+      "component": ".",
+      "case": {
+        "id": "http_smoke::feature_configuration_is_exposed_through_the_http_boundary",
+        "behavior": "success"
+      },
+      "reason": "Public composed router assertions in tests/http_smoke.rs; see docs/http-contract-evidence.md for intentionally untested dimensions."
+    },
+    {
+      "id": "get_profile_feature_gate:get_profile_returns_feature_disabled",
+      "surface": "http-operation:GET:%2Fv1%2Fprofiles%2F%7Buser_id%7D",
+      "kind": "behavioral",
+      "capability": "test",
+      "component": ".",
+      "case": {
+        "id": "get_profile_feature_gate::get_profile_returns_feature_disabled",
+        "behavior": "availability"
+      },
+      "reason": "Public composed router assertions in tests/get_profile_feature_gate.rs; see docs/http-contract-evidence.md for intentionally untested dimensions."
+    },
+    {
+      "id": "get_post_feature_gate:get_post_returns_feature_disabled",
+      "surface": "http-operation:GET:%2Fv1%2Fposts%2F%7Bpost_id%7D",
+      "kind": "behavioral",
+      "capability": "test",
+      "component": ".",
+      "case": {
+        "id": "get_post_feature_gate::get_post_returns_feature_disabled",
+        "behavior": "availability"
+      },
+      "reason": "Public composed router assertions in tests/get_post_feature_gate.rs; see docs/http-contract-evidence.md for intentionally untested dimensions."
+    },
+    {
+      "id": "profile_empty_display_name_validation:profile_empty_display_name_returns_bad_request",
+      "surface": "http-operation:PUT:%2Fv1%2Fprofiles%2Fme",
+      "kind": "behavioral",
+      "capability": "test",
+      "component": ".",
+      "case": {
+        "id": "profile_empty_display_name_validation::profile_empty_display_name_returns_bad_request",
+        "behavior": "validation"
+      },
+      "reason": "Public composed router assertions in tests/profile_empty_display_name_validation.rs; see docs/http-contract-evidence.md for intentionally untested dimensions."
+    },
+    {
+      "id": "media_empty_url_validation:media_empty_url_returns_bad_request",
+      "surface": "http-operation:POST:%2Fv1%2Fmedia",
+      "kind": "behavioral",
+      "capability": "test",
+      "component": ".",
+      "case": {
+        "id": "media_empty_url_validation::media_empty_url_returns_bad_request",
+        "behavior": "validation"
+      },
+      "reason": "Public composed router assertions in tests/media_empty_url_validation.rs; see docs/http-contract-evidence.md for intentionally untested dimensions."
+    },
+    {
+      "id": "post_empty_body_validation:post_empty_body_returns_bad_request",
+      "surface": "http-operation:POST:%2Fv1%2Fposts",
+      "kind": "behavioral",
+      "capability": "test",
+      "component": ".",
+      "case": {
+        "id": "post_empty_body_validation::post_empty_body_returns_bad_request",
+        "behavior": "validation"
+      },
+      "reason": "Public composed router assertions in tests/post_empty_body_validation.rs; see docs/http-contract-evidence.md for intentionally untested dimensions."
+    },
+    {
+      "id": "comment_empty_body_validation:comment_empty_body_returns_bad_request",
+      "surface": "http-operation:POST:%2Fv1%2Fposts%2F%7Bpost_id%7D%2Fcomments",
+      "kind": "behavioral",
+      "capability": "test",
+      "component": ".",
+      "case": {
+        "id": "comment_empty_body_validation::comment_empty_body_returns_bad_request",
+        "behavior": "validation"
+      },
+      "reason": "Public composed router assertions in tests/comment_empty_body_validation.rs; see docs/http-contract-evidence.md for intentionally untested dimensions."
+    },
+    {
+      "id": "conversation_single_member_validation:conversation_single_member_returns_bad_request",
+      "surface": "http-operation:POST:%2Fv1%2Fconversations",
+      "kind": "behavioral",
+      "capability": "test",
+      "component": ".",
+      "case": {
+        "id": "conversation_single_member_validation::conversation_single_member_returns_bad_request",
+        "behavior": "validation"
+      },
+      "reason": "Public composed router assertions in tests/conversation_single_member_validation.rs; see docs/http-contract-evidence.md for intentionally untested dimensions."
+    }
+  ]
+}

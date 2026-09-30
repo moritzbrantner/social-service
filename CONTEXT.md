@@ -40,6 +40,11 @@ The current baseline includes:
 - reports, moderation cases, content/account enforcement, scoped restrictions, role bindings, audit events, group moderation, and provider-neutral moderation signals;
 - deterministic capability resolution and a framework-independent TypeScript SDK.
 
+The HTTP operation inventory and explicit current-run behavioral mappings live
+in `openapi.json`, `.coding-tooling.contracts.json` and
+`docs/http-contract-evidence.md`. The pilot covers availability and validation
+cases without claiming complete route behavior or SDK compatibility.
+
 ## Current implementation strategies
 
 - Timeline delivery uses indexed PostgreSQL fan-out on read, with post media batch-loaded for each bounded result set.
@@ -59,7 +64,7 @@ These are architecture/infrastructure gaps rather than missing social semantics:
 - a transactional domain-event/outbox boundary for notifications, search projections, and future derived feeds;
 - an optional same-repository worker runtime once outbox-backed background work exists; this is execution separation, not domain decomposition;
 - managed media upload/inspection/lifecycle adapters behind the existing logical media model;
-- a machine-readable public HTTP contract and executable server/SDK compatibility checking;
+- complete HTTP request/response schemas and executable server/SDK compatibility checking;
 - production service hardening such as configurable pool/resource limits, timeouts/cancellation, request correlation, and operational metrics;
 - persisted per-app capability selection if deployments need different app subsets.
 
