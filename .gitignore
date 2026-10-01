@@ -4,3 +4,5 @@
 node_modules/
 
 /.artifacts/
+
+__pycache__/

@@ -241,3 +241,5 @@ GET    /v1/moderation/audit
 Follow graph reads return bounded `FollowEdge` records rather than profile projections. Pending follow-request and approved-follower lists are private to the current user and return relationship records rather than profile projections. Block/mute lists return only the current user's own `UserSafetyRelationship` records; there is no public "who blocked me" surface.
 
 The TypeScript client lives in `sdk/typescript` and exposes the matching post-audience, reaction, and vote contracts.
+
+Bounded local service measurements and setup: [load smoke](docs/load-smoke.md).

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "components": [
+    {
+      "component": ".",
+      "roles": [
+        "service"
+      ],
+      "scenarios": [
+        {
+          "family": "load-smoke",
+          "capability": "load:smoke",
+          "path": ".performance/load-smoke.json",
+          "tools": [
+            "runtime-profiler",
+            "curl",
+            "docker",
+            "cargo",
+            "python3"
+          ],
+          "platforms": [
+            "linux",
+            "darwin"
+          ]
+        }
+      ]
+    }
+  ]
+}
