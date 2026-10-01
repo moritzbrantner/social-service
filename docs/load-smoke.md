@@ -27,13 +27,15 @@ batch, concurrency four, three-second request timeouts, one warmup and three
 measured batches, each bounded to 15 seconds. Thus 96 measured transfers exclude
 32 warmups and health probes. Setup is bounded to 60 seconds and teardown to 30.
 `scripts/load_fixture.py` reuses `compose.yaml` with only a private project name
-and loopback OS-assigned port override. Its isolated volume contains two fixed
+and loopback OS-assigned port override. A bounded 128 MiB tmpfs holds the private
+database, avoiding host-disk initialization flushes for this read workload. This
+is an in-memory read fixture, not production storage/durability evidence. It contains two fixed
 profiles, one follow edge, and eight posts with fixed UUIDs/timestamps. It never
 uses `DATABASE_URL`, a development database, or a production endpoint. The
 Rust example checks seeded profile and timeline responses before publishing its
 own OS-assigned HTTP port. Native capture owns/reaps the foreground process group;
 SIGINT and SIGTERM to the wrapper propagate graceful cancellation to the native
-owner. Its teardown removes only that private Compose project's container and volume,
+owner. Its teardown removes only that private Compose project's container and any owned volumes with a zero-second stop grace,
 including startup/capture failure. External cancellation cleanup follows the
 profiler's first-interrupt contract; force-killing the owner cannot promise cleanup.
 
@@ -54,7 +56,7 @@ values are disposable fixture identities, not credentials, and are omitted from
 bundle artifacts. The wrapper accepts a repository-local `--scenario` for explicit
 diagnostics; the native collector still permits only an owned loopback fixture.
 
-Fixture semantics form part of the workload contract. Change the scenario ID when
+Fixture semantics and the memory-backed database topology form part of the workload contract. Change the scenario ID when
 changing seed shape or measured endpoint semantics; do not compare changed fixtures
 as the same workload. Native comparisons additionally check scenario/environment,
 curl build and adapter identity. Source revisions stay separate from workload and

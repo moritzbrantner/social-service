@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import signal
@@ -52,6 +53,8 @@ def run(args):
     if not scenario.is_relative_to(ROOT):
         raise ValueError("scenario must belong to this repository")
     plan = json.loads(command([profiler, "plan", "--scenario", str(scenario)], 10))
+    if plan["target_type"] != "http-workload" or [item["id"] for item in plan["collectors"]] != ["http-curl"]:
+        raise ValueError("load smoke requires a native HTTP workload and its HTTP collector")
     if not all(item["supported"] for item in plan["collectors"]):
         raise Unavailable("declared HTTP collector is unsupported")
     for tool in ["cargo", "docker"]:
@@ -62,6 +65,13 @@ def run(args):
     except ValueError as error:
         raise Unavailable("local Docker daemon is unavailable") from error
     docker = ["docker", "--host", "unix:///var/run/docker.sock"]
+    try:
+        version = command(docker + ["compose", "version", "--short"], 10).strip()
+    except (ValueError, subprocess.SubprocessError) as error:
+        raise Unavailable("Docker Compose support is unavailable") from error
+    parsed_version = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?", version)
+    if parsed_version is None or tuple(map(int, parsed_version.groups())) < (2, 24, 4):
+        raise Unavailable("Docker Compose 2.24.4+ with port override support is required")
     images = command(docker + ["compose", "--file", str(ROOT / "compose.yaml"), "config", "--images"], 10).splitlines()
     if len(images) != 1:
         raise ValueError("load topology requires exactly one declared database image")

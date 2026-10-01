@@ -23,12 +23,12 @@ def run(mode):
         project = json.loads(manifest.read_text())["project"]
         if not re.fullmatch(r"social-load-[0-9a-f]{32}", project):
             raise ValueError("invalid owned project")
-        command(DOCKER + ["compose", "--project-name", project, "--file", str(ROOT / "compose.yaml"), "--file", str(override), "down", "--volumes", "--remove-orphans"], 25)
+        command(DOCKER + ["compose", "--project-name", project, "--file", str(ROOT / "compose.yaml"), "--file", str(override), "down", "--timeout", "0", "--volumes", "--remove-orphans"], 25)
         return
     if mode != "start" or manifest.exists():
         raise ValueError("fixture requires a fresh start or owned stop")
     project = "social-load-" + uuid.uuid4().hex
-    override.write_text('services:\n  postgres:\n    ports: !override ["127.0.0.1::5432"]\n')
+    override.write_text('services:\n  postgres:\n    ports: !override ["127.0.0.1::5432"]\n    volumes: !reset []\n    tmpfs: ["/var/lib/postgresql/data:rw,size=134217728"]\n')
     # Persist ownership before creating resources so failed startup can still clean up.
     manifest.write_text(json.dumps({"project": project}))
     compose = DOCKER + ["compose", "--project-name", project, "--file", str(ROOT / "compose.yaml"), "--file", str(override)]

@@ -2,6 +2,7 @@
 import json
 import os
 import signal
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -82,6 +83,11 @@ class LoadSmoke(unittest.TestCase):
                     break
                 time.sleep(0.1)
             self.assertTrue(observed, "capture must reach real database startup")
+            for project in observed:
+                containers = subprocess.run(docker + ["ps", "--filter", "label=com.docker.compose.project=" + project, "--format", "{{.ID}}"], check=True, capture_output=True, text=True, timeout=10)
+                self.assertEqual(len(containers.stdout.splitlines()), 1)
+                storage = subprocess.run(docker + ["inspect", containers.stdout.strip(), "--format", "{{json .HostConfig.Tmpfs}}"], check=True, capture_output=True, text=True, timeout=10)
+                self.assertIn("size=134217728", json.loads(storage.stdout)["/var/lib/postgresql/data"])
             child.send_signal(cancellation_signal)
             output, errors = child.communicate(timeout=45)
             self.assertEqual(child.returncode, 1, errors)
@@ -94,6 +100,34 @@ class LoadSmoke(unittest.TestCase):
             if child.poll() is None:
                 child.send_signal(signal.SIGINT)
                 child.communicate(timeout=45)
+
+    def test_process_scenario_cannot_masquerade_as_service_load(self):
+        scenario = {
+            "schema_version": "runtime-profiler/scenario/v1", "id": "not-service-load",
+            "target": {"type": "command", "program": sys.executable, "args": ["-c", "pass"]},
+            "run": {"warmup_iterations": 0, "measurement_iterations": 1, "timeout_seconds": 3},
+            "collectors": ["process"],
+        }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", dir=ROOT / ".artifacts") as source:
+            json.dump(scenario, source)
+            source.flush()
+            result, report = self.invoke("--scenario", source.name)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(report["status"], "failed")
+        self.assertNotIn("bundle", report)
+
+    def test_missing_or_old_compose_is_unavailable_before_capture(self):
+        profiler = ROOT / ".artifacts/tools/runtime-profiler/bin/runtime-profiler"
+        for version_response in ["exit 1", "echo 2.20.0"]:
+            with tempfile.TemporaryDirectory() as directory:
+                for tool in ["curl", "cargo"]:
+                    os.symlink(shutil.which(tool), Path(directory) / tool)
+                docker = Path(directory) / "docker"
+                docker.write_text('#!/bin/sh\ncase "$3" in\ninfo) echo 29.8.1 ;;\ncompose) if [ "$4" = version ]; then ' + version_response + '; else exit 1; fi ;;\n*) exit 1 ;;\nesac\n')
+                docker.chmod(0o755)
+                result = subprocess.run([sys.executable, "scripts/load_smoke.py", "--profiler", str(profiler)], cwd=ROOT, env={"PATH": directory}, capture_output=True, text=True, timeout=20)
+            self.assertEqual(result.returncode, 2, result.stdout)
+            self.assertEqual(json.loads(result.stdout)["status"], "unavailable")
 
     def test_missing_profiler_is_explicitly_unavailable_without_starting_database(self):
         result = subprocess.run(["python3", "scripts/load_smoke.py", "--profiler", "/missing-social-load-profiler"], cwd=ROOT, capture_output=True, text=True, timeout=10)

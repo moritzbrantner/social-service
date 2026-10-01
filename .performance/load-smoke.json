@@ -1,6 +1,6 @@
 {
   "schema_version": "runtime-profiler/scenario/v1",
-  "id": "social-profile-timeline-smoke",
+  "id": "social-profile-timeline-smoke-tmpfs-v1",
   "target": {
     "type": "http-workload",
     "fixture": {
