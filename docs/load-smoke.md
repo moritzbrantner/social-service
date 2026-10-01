@@ -9,6 +9,7 @@ Install the immutable source separately, then execute the declared command:
 ```bash
 cargo install --git https://github.com/moritzbrantner/runtime-profiler.git --rev 7ba8e3a9a80ed4911f49a07b4b4848945f6e6fdb --locked --root .artifacts/tools/runtime-profiler
 cargo fetch --locked
+docker compose pull postgres
 export PATH="$PWD/.artifacts/tools/runtime-profiler/bin:$PATH"
 python3 scripts/load_smoke.py
 python3 scripts/test_load_smoke.py
@@ -18,7 +19,8 @@ Prerequisites are the repository Rust toolchain, Python 3, Unix process groups,
 curl 8.4+ with HTTP support, and Docker Compose supporting `!override` (2.24.4+).
 The local daemon socket is `/var/run/docker.sock`. Other daemon/device topologies
 are not part of this pilot. Installation may acquire source/dependencies; capture
-never downloads the profiler. Build uses Cargo's locked, offline graph after explicit acquisition.
+never downloads the profiler. Build uses Cargo's locked, offline graph after explicit acquisition. Fixture
+startup forbids image pulls; acquire the pinned image before capture.
 
 `.performance/load-smoke.json` owns the workload: two GET paths, 32 requests per
 batch, concurrency four, three-second request timeouts, one warmup and three
@@ -30,7 +32,8 @@ profiles, one follow edge, and eight posts with fixed UUIDs/timestamps. It never
 uses `DATABASE_URL`, a development database, or a production endpoint. The
 Rust example checks seeded profile and timeline responses before publishing its
 own OS-assigned HTTP port. Native capture owns/reaps the foreground process group;
-its teardown removes only that private Compose project's container and volume,
+SIGINT and SIGTERM to the wrapper propagate graceful cancellation to the native
+owner. Its teardown removes only that private Compose project's container and volume,
 including startup/capture failure. External cancellation cleanup follows the
 profiler's first-interrupt contract; force-killing the owner cannot promise cleanup.
 

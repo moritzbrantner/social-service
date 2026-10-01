@@ -155,6 +155,8 @@ jobs:
         run: echo "$PWD/.artifacts/tools/runtime-profiler/bin" >> "$GITHUB_PATH"
       - name: Acquire locked service dependencies
         run: cargo fetch --locked
+      - name: Acquire pinned database image
+        run: docker compose pull postgres
       - name: Run real-service acceptance and failure cases
         run: python3 scripts/test_load_smoke.py
       - name: Invoke declared performance capability

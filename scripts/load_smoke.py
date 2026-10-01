@@ -61,6 +61,14 @@ def run(args):
         command(["docker", "--host", "unix:///var/run/docker.sock", "info", "--format", "{{.ServerVersion}}"], 10)
     except ValueError as error:
         raise Unavailable("local Docker daemon is unavailable") from error
+    docker = ["docker", "--host", "unix:///var/run/docker.sock"]
+    images = command(docker + ["compose", "--file", str(ROOT / "compose.yaml"), "config", "--images"], 10).splitlines()
+    if len(images) != 1:
+        raise ValueError("load topology requires exactly one declared database image")
+    try:
+        command(docker + ["image", "inspect", images[0], "--format", "{{.Id}}"], 10)
+    except ValueError as error:
+        raise Unavailable("acquire the pinned database image separately with docker compose pull postgres") from error
     command(["cargo", "build", "--locked", "--offline", "--example", "load_fixture"], 300)
     directory = ROOT / ".artifacts/load-smoke"
     if any(path.is_symlink() for path in [ROOT / ".artifacts", directory]) or not directory.resolve().is_relative_to(ROOT):
@@ -76,7 +84,11 @@ def run(args):
     successful = bool(samples) and all(sample["succeeded"] for sample in samples)
     return {"status": "passed" if successful else "failed", "bundle": bundle.relative_to(ROOT).as_posix(), "measuredRequests": len(samples), "metrics": metrics["metrics"], "timingPolicy": "informational"}, 0 if successful else 1
 
+def cancel(_signal, _frame):
+    raise KeyboardInterrupt
+
 def main():
+    signal.signal(signal.SIGTERM, cancel)
     parser = argparse.ArgumentParser()
     parser.add_argument("--profiler", default="runtime-profiler")
     parser.add_argument("--scenario", default=str(ROOT / ".performance/load-smoke.json"))

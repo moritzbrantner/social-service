@@ -32,7 +32,7 @@ def run(mode):
     # Persist ownership before creating resources so failed startup can still clean up.
     manifest.write_text(json.dumps({"project": project}))
     compose = DOCKER + ["compose", "--project-name", project, "--file", str(ROOT / "compose.yaml"), "--file", str(override)]
-    command(compose + ["up", "--detach", "--wait", "--wait-timeout", "30", "postgres"], 40)
+    command(compose + ["up", "--pull", "never", "--detach", "--wait", "--wait-timeout", "30", "postgres"], 40)
     binding = command(compose + ["port", "postgres", "5432"], 5)
     if not re.fullmatch(r"127\.0\.0\.1:[0-9]+", binding):
         raise ValueError("database binding must be loopback")

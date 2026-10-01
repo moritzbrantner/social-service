@@ -59,7 +59,13 @@ class LoadSmoke(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertEqual(json.loads(result.stdout)["status"], "unavailable")
 
-    def test_cancellation_waits_for_the_private_database_teardown(self):
+    def test_sigint_waits_for_the_private_database_teardown(self):
+        self.assert_cancellation_cleanup(signal.SIGINT)
+
+    def test_sigterm_waits_for_the_private_database_teardown(self):
+        self.assert_cancellation_cleanup(signal.SIGTERM)
+
+    def assert_cancellation_cleanup(self, cancellation_signal):
         docker = ["docker", "--host", "unix:///var/run/docker.sock"]
         def projects():
             result = subprocess.run(docker + ["ps", "--filter", "name=social-load-", "--format", '{{.Label "com.docker.compose.project"}}'], check=True, capture_output=True, text=True, timeout=10)
@@ -76,7 +82,7 @@ class LoadSmoke(unittest.TestCase):
                     break
                 time.sleep(0.1)
             self.assertTrue(observed, "capture must reach real database startup")
-            child.send_signal(signal.SIGINT)
+            child.send_signal(cancellation_signal)
             output, errors = child.communicate(timeout=45)
             self.assertEqual(child.returncode, 1, errors)
             self.assertEqual(json.loads(output)["status"], "failed")
