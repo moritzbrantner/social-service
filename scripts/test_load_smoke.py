@@ -68,10 +68,11 @@ class LoadSmoke(unittest.TestCase):
 
     def assert_cancellation_cleanup(self, cancellation_signal):
         docker = ["docker", "--host", "unix:///var/run/docker.sock"]
-        def projects():
-            result = subprocess.run(docker + ["ps", "--filter", "name=social-load-", "--format", '{{.Label "com.docker.compose.project"}}'], check=True, capture_output=True, text=True, timeout=10)
+        def projects(all_containers=False):
+            arguments = ["ps"] + (["--all"] if all_containers else [])
+            result = subprocess.run(docker + arguments + ["--filter", "name=social-load-", "--format", '{{.Label "com.docker.compose.project"}}'], check=True, capture_output=True, text=True, timeout=10)
             return set(result.stdout.splitlines())
-        before = projects()
+        before = projects(all_containers=True)
         profiler = ROOT / ".artifacts/tools/runtime-profiler/bin/runtime-profiler"
         child = subprocess.Popen([sys.executable, "scripts/load_smoke.py", "--profiler", str(profiler)], cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         observed = set()
@@ -92,7 +93,7 @@ class LoadSmoke(unittest.TestCase):
             output, errors = child.communicate(timeout=45)
             self.assertEqual(child.returncode, 1, errors)
             self.assertEqual(json.loads(output)["status"], "failed")
-            self.assertFalse(observed & projects(), "owned containers must be gone before cancellation returns")
+            self.assertFalse(observed & projects(all_containers=True), "owned containers must be gone before cancellation returns")
             for project in observed:
                 volumes = subprocess.run(docker + ["volume", "ls", "--filter", "label=com.docker.compose.project=" + project, "--format", "{{.Name}}"], check=True, capture_output=True, text=True, timeout=10)
                 self.assertEqual(volumes.stdout.strip(), "", "owned volumes must be removed")
