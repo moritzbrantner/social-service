@@ -82,7 +82,7 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: sdk/typescript
       - name: Run strict full tier
-        uses: moritzbrantner/coding-tooling@20d928976ca839817c0e620e080ba11d60504dee
+        uses: moritzbrantner/coding-tooling@1ca87e2982c30cf29b813b0e6309219642f65b3f
         with:
           operation: run
           tier: full
@@ -91,7 +91,7 @@ jobs:
           report-path: .artifacts/coding-tooling/full.json
 
       - name: Verify exact HTTP behavioral cases
-        uses: moritzbrantner/coding-tooling@20d928976ca839817c0e620e080ba11d60504dee
+        uses: moritzbrantner/coding-tooling@1ca87e2982c30cf29b813b0e6309219642f65b3f
         with:
           operation: public-contract
           install-mode: none
@@ -127,7 +127,50 @@ jobs:
 
       - name: Check convention conformance
         if: steps.structure.outputs.changed == 'true'
-        uses: moritzbrantner/coding-tooling@20d928976ca839817c0e620e080ba11d60504dee
+        uses: moritzbrantner/coding-tooling@1ca87e2982c30cf29b813b0e6309219642f65b3f
         with:
           operation: conformance
           report-path: .artifacts/coding-tooling/conformance.json
+
+  load-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+          cache-dependency-path: sdk/typescript/package-lock.json
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: sdk/typescript
+      - name: Install declared profiler source
+        run: cargo install --git https://github.com/moritzbrantner/runtime-profiler.git --rev 7ba8e3a9a80ed4911f49a07b4b4848945f6e6fdb --locked --root .artifacts/tools/runtime-profiler
+      - name: Expose installed collector
+        run: echo "$PWD/.artifacts/tools/runtime-profiler/bin" >> "$GITHUB_PATH"
+      - name: Acquire locked service dependencies
+        run: cargo fetch --locked
+      - name: Run real-service acceptance and failure cases
+        run: python3 scripts/test_load_smoke.py
+      - name: Invoke declared performance capability
+        uses: moritzbrantner/coding-tooling@1ca87e2982c30cf29b813b0e6309219642f65b3f
+        with:
+          operation: run
+          tier: performance
+          strict: "true"
+          install-mode: none
+          report-path: .artifacts/coding-tooling/load-smoke.json
+      - name: Upload measurement and validation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: social-service-load-smoke
+          path: |
+            .artifacts/load-smoke
+            .artifacts/coding-tooling/load-smoke.json
+          if-no-files-found: error

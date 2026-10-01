@@ -45,6 +45,11 @@ in `openapi.json`, `.coding-tooling.contracts.json` and
 `docs/http-contract-evidence.md`. The pilot covers availability and validation
 cases without claiming complete route behavior or SDK compatibility.
 
+The optional `load:smoke` capability uses the native runtime-profiler HTTP
+collector against seeded profile/timeline reads and an isolated Compose database.
+It records bounded latency, success/error rates, and completed-request throughput;
+timings are informational. See `docs/load-smoke.md`.
+
 ## Current implementation strategies
 
 - Timeline delivery uses indexed PostgreSQL fan-out on read, with post media batch-loaded for each bounded result set.
