@@ -13,6 +13,7 @@ use crate::{
     auth::{RequestContext, app_id, optional_user_id},
     error::ApiError,
     features::Feature,
+    locking::lock_user_pair,
     models::{
         Comment, CreateComment, CreatePost, FollowEdge, LimitQuery, Post, PostAudience, PostRow,
     },
@@ -20,7 +21,7 @@ use crate::{
         RestrictionScope, TargetType, ensure_account_visible, ensure_content_visible,
         ensure_user_can,
     },
-    relationships::{ensure_not_blocked, lock_user_pair, users_are_blocked_in_transaction},
+    relationships::{ensure_not_blocked, users_are_blocked_in_transaction},
     state::AppState,
     visibility::Visibility,
 };

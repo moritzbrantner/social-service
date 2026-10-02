@@ -7,7 +7,7 @@ use axum::{
 };
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
-use social_service::{app, features::FeatureSet, relationships::lock_users, state::AppState};
+use social_service::{app, features::FeatureSet, locking::lock_users, state::AppState};
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use tower::ServiceExt;
 use uuid::Uuid;

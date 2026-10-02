@@ -9,8 +9,9 @@ use crate::{
     auth::{RequestContext, app_id, optional_user_id},
     error::ApiError,
     features::Feature,
+    locking::lock_user_pair,
     models::{ReactionCount, ReactionSummary, ReactionTargetType, ReactionType},
-    relationships::{lock_user_pair, users_are_blocked_in_transaction},
+    relationships::users_are_blocked_in_transaction,
     state::AppState,
 };
 

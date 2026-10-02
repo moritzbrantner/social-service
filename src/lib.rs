@@ -3,6 +3,7 @@ pub mod config;
 pub mod error;
 pub mod features;
 pub mod groups;
+pub mod locking;
 pub mod models;
 pub mod moderation;
 pub mod relationships;
