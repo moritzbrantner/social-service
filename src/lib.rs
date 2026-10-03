@@ -3,6 +3,7 @@ pub mod config;
 pub mod error;
 pub mod features;
 pub mod groups;
+pub mod locking;
 pub mod models;
 pub mod moderation;
 pub mod relationships;
@@ -17,6 +18,7 @@ use tower_http::trace::TraceLayer;
 pub fn app(state: AppState) -> Router {
     Router::new()
         .route("/health", get(routes::health))
+        .route("/ready", get(routes::ready))
         .route("/v1/features", get(routes::features))
         .nest("/v1", routes::router())
         .layer(TraceLayer::new_for_http())

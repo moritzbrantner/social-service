@@ -27,7 +27,7 @@ Media uploads are represented as registered media assets in the current baseline
 
 The current baseline intentionally uses **fan-out on read**: the following timeline is assembled by one indexed PostgreSQL query over `posts`, `follows`, and—only for approved-follower posts—the durable `follow_approvals` relation. It does not execute one query or use one database per followed user. Post audience, block, mute, and moderation policy are applied in the same read boundary.
 
-Do not introduce multiple databases or Twitter-scale fan-out infrastructure without evidence that timeline reads require it. The first optimization should be eliminating N+1 reads when loading media for timeline posts by batch-loading attachments.
+Do not introduce multiple databases or Twitter-scale fan-out infrastructure without evidence that timeline reads require it. Timeline attachments are batch-loaded for the bounded result set, so attachment materialization adds one query rather than one query per post.
 
 If scale later requires precomputed feeds, evolve toward a `timeline_entries(user_id, post_id, created_at)` read model populated asynchronously when posts are created. At very large scale, prefer a hybrid approach: fan out ordinary authors on write, while high-follower accounts are merged into feeds on read to avoid extreme write amplification. Any derived feed must reapply the current post audience, block, mute, and moderation policy before returning content; a stale derived row must never preserve access after approval is revoked.
 
@@ -66,7 +66,7 @@ docker compose up -d postgres
 cargo run
 ```
 
-The server applies `migrations/` on startup and listens on `127.0.0.1:8080` by default. JSON timestamps are emitted as RFC 3339 strings.
+The server applies `migrations/` on startup and listens on `127.0.0.1:8080` by default. JSON timestamps are emitted as RFC 3339 strings. `GET /health` is process liveness and intentionally does not probe PostgreSQL; `GET /ready` is dependency readiness and succeeds only when PostgreSQL answers within `SOCIAL_READINESS_TIMEOUT_MS` (2,000 ms by default).
 
 The Compose topology intentionally contains infrastructure, not separate containers for posts, comments, follows, groups, chat, moderation, or other social capabilities.
 
@@ -179,6 +179,7 @@ The TypeScript SDK exposes a `GroupOperation` union and `executeGroupOperation` 
 
 ```text
 GET    /health
+GET    /ready
 GET    /v1/features
 GET    /v1/profiles/:user_id
 PUT    /v1/profiles/me
@@ -253,3 +254,5 @@ GET    /v1/moderation/audit
 Follow graph reads return bounded `FollowEdge` records rather than profile projections. Pending follow-request and approved-follower lists are private to the current user and return relationship records rather than profile projections. Block/mute lists return only the current user's own `UserSafetyRelationship` records; there is no public "who blocked me" surface.
 
 The TypeScript client lives in `sdk/typescript` and exposes the matching post-audience, reaction, and vote contracts.
+
+Bounded local service measurements and setup: [load smoke](docs/load-smoke.md).

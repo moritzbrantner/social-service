@@ -19,7 +19,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let listener = tokio::net::TcpListener::bind(config.bind).await?;
     tracing::info!(address = %config.bind, "social-service listening");
-    axum::serve(listener, app(AppState::new(pool, config.features)))
+    let state =
+        AppState::new(pool, config.features).with_readiness_timeout(config.readiness_timeout);
+    axum::serve(listener, app(state))
         .with_graceful_shutdown(shutdown_signal())
         .await?;
 

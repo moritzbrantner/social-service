@@ -2,16 +2,70 @@
   "schemaVersion": 1,
   "profile": "repository-foundation-v1",
   "tiers": {
-    "fast": ["format:check", "lint", "typecheck", "test:unit"],
-    "integration": ["test:integration"],
-    "full": ["format:check", "lint", "typecheck", "test:unit", "test:integration", "build"]
+    "fast": [
+      "format:check",
+      "lint",
+      "typecheck",
+      "test:unit"
+    ],
+    "integration": [
+      "test:integration"
+    ],
+    "full": [
+      "format:check",
+      "lint",
+      "typecheck",
+      "test:unit",
+      "test:integration",
+      "build"
+    ],
+    "http-contract": [
+      "test"
+    ],
+    "performance": [
+      "load:smoke"
+    ]
   },
-  "requiredCapabilities": ["lint", "typecheck"],
-  "optionalCapabilities": ["format:check", "test:unit", "test:integration", "build"],
+  "requiredCapabilities": [
+    "lint",
+    "typecheck"
+  ],
+  "optionalCapabilities": [
+    "format:check",
+    "test:unit",
+    "test:integration",
+    "build",
+    "test",
+    "load:smoke"
+  ],
   "capabilityCommands": {
-    "social-service": {
-      "typecheck": ["cargo", "check", "--locked", "--all-targets", "--all-features"],
-      "test:integration": ["bash", "scripts/test-integration.sh"]
+    ".": {
+      "typecheck": [
+        "cargo",
+        "check",
+        "--locked",
+        "--all-targets",
+        "--all-features"
+      ],
+      "test:integration": [
+        "bash",
+        "scripts/test-integration.sh"
+      ],
+      "test": [
+        "cargo",
+        "run",
+        "--locked",
+        "--example",
+        "http_case_evidence"
+      ],
+      "load:smoke": [
+        "python3",
+        "scripts/load_smoke.py"
+      ]
     }
+  },
+  "contracts": {
+    "manifest": ".coding-tooling.contracts.json",
+    "enforcement": "observe"
   }
 }

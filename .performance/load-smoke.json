@@ -1,0 +1,56 @@
+{
+  "schema_version": "runtime-profiler/scenario/v1",
+  "id": "social-profile-timeline-smoke-tmpfs-v1",
+  "target": {
+    "type": "http-workload",
+    "fixture": {
+      "program": "python3",
+      "args": [
+        "scripts/load_fixture.py",
+        "start"
+      ],
+      "working_directory": "..",
+      "inherit_env": [],
+      "health_path": "/ready",
+      "startup_timeout_seconds": 60,
+      "teardown": {
+        "program": "python3",
+        "args": [
+          "scripts/load_fixture.py",
+          "stop"
+        ]
+      }
+    },
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/v1/profiles/00000000-0000-0000-0000-000000000003",
+        "headers": {
+          "x-app-id": "00000000-0000-0000-0000-000000000001",
+          "x-user-id": "00000000-0000-0000-0000-000000000002"
+        },
+        "expected_status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/v1/timeline?limit=8",
+        "headers": {
+          "x-app-id": "00000000-0000-0000-0000-000000000001",
+          "x-user-id": "00000000-0000-0000-0000-000000000002"
+        },
+        "expected_status": 200
+      }
+    ],
+    "request_count": 32,
+    "concurrency": 4,
+    "request_timeout_seconds": 3
+  },
+  "run": {
+    "warmup_iterations": 1,
+    "measurement_iterations": 3,
+    "timeout_seconds": 15
+  },
+  "collectors": [
+    "http-curl"
+  ]
+}

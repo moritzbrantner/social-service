@@ -61,19 +61,21 @@ pub async fn users_are_blocked_in_transaction(
     )
 }
 
-pub async fn lock_user_pair(
+pub async fn members_have_block_in_transaction(
     transaction: &mut Transaction<'_, Postgres>,
     app_id: Uuid,
-    left_id: Uuid,
-    right_id: Uuid,
-) -> Result<(), ApiError> {
-    sqlx::query("SELECT social_lock_user_pair($1, $2, $3)")
-        .bind(app_id)
-        .bind(left_id)
-        .bind(right_id)
-        .execute(&mut **transaction)
-        .await?;
-    Ok(())
+    member_ids: &[Uuid],
+) -> Result<bool, ApiError> {
+    if member_ids.len() < 2 {
+        return Ok(false);
+    }
+    Ok(sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM user_blocks b WHERE b.app_id = $1 AND b.blocker_id = ANY($2) AND b.blocked_id = ANY($2))",
+    )
+    .bind(app_id)
+    .bind(member_ids)
+    .fetch_one(&mut **transaction)
+    .await?)
 }
 
 pub async fn members_have_block(

@@ -321,9 +321,9 @@ export type ModerationSignalQuery = {
 
 export type ModerationTargetSnapshot =
   | { type: "profile"; data: Profile }
-  | { type: "post"; data: Omit<Post, "mediaIds" | "audience"> }
+  | { type: "post"; data: Post }
   | { type: "comment"; data: Comment }
   | { type: "media"; data: MediaAsset }
-  | { type: "group"; data: Omit<Group, "members" | "chatConversationId"> }
-  | { type: "conversation"; data: Omit<Conversation, "memberIds"> }
-  | { type: "message"; data: Omit<Message, "mediaIds"> };
+  | { type: "group"; data: Group }
+  | { type: "conversation"; data: Conversation }
+  | { type: "message"; data: Message };

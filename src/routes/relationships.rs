@@ -9,8 +9,9 @@ use crate::{
     auth::RequestContext,
     error::ApiError,
     features::Feature,
+    locking::{lock_user_pair, lock_users},
     models::{LimitQuery, UserSafetyRelationship},
-    relationships::{ensure_relationship_target, lock_user_pair},
+    relationships::ensure_relationship_target,
     state::AppState,
 };
 
@@ -24,6 +25,12 @@ pub async fn block_user(
     ensure_relationship_target(&state, context.app_id.0, context.user_id.0, user_id).await?;
 
     let mut transaction = state.pool.begin().await?;
+    lock_users(
+        &mut transaction,
+        context.app_id.0,
+        &[context.user_id.0, user_id],
+    )
+    .await?;
     lock_user_pair(
         &mut transaction,
         context.app_id.0,
@@ -100,6 +107,12 @@ pub async fn unblock_user(
     state.features.require(Feature::Blocks)?;
     let context = RequestContext::from_headers(&headers)?;
     let mut transaction = state.pool.begin().await?;
+    lock_users(
+        &mut transaction,
+        context.app_id.0,
+        &[context.user_id.0, user_id],
+    )
+    .await?;
     lock_user_pair(
         &mut transaction,
         context.app_id.0,

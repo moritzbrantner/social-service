@@ -1,4 +1,4 @@
-use std::{env, net::SocketAddr};
+use std::{env, net::SocketAddr, time::Duration};
 
 use thiserror::Error;
 
@@ -9,6 +9,7 @@ pub struct Config {
     pub database_url: String,
     pub bind: SocketAddr,
     pub features: FeatureSet,
+    pub readiness_timeout: Duration,
 }
 
 impl Config {
@@ -23,11 +24,19 @@ impl Config {
             "profiles,media,posts,comments,reactions,votes,follows,follow_requests,saves,blocks,mutes,groups,chat"
                 .to_owned()
         }))?;
+        let readiness_timeout_ms = env::var("SOCIAL_READINESS_TIMEOUT_MS")
+            .unwrap_or_else(|_| "2000".to_owned())
+            .parse::<u64>()
+            .map_err(ConfigError::InvalidReadinessTimeout)?;
+        if readiness_timeout_ms == 0 {
+            return Err(ConfigError::ZeroReadinessTimeout);
+        }
 
         Ok(Self {
             database_url,
             bind,
             features,
+            readiness_timeout: Duration::from_millis(readiness_timeout_ms),
         })
     }
 }
@@ -38,6 +47,10 @@ pub enum ConfigError {
     Missing(&'static str),
     #[error("SOCIAL_BIND is invalid: {0}")]
     InvalidBind(std::net::AddrParseError),
+    #[error("SOCIAL_READINESS_TIMEOUT_MS is invalid: {0}")]
+    InvalidReadinessTimeout(std::num::ParseIntError),
+    #[error("SOCIAL_READINESS_TIMEOUT_MS must be greater than zero")]
+    ZeroReadinessTimeout,
     #[error(transparent)]
     Features(#[from] FeatureError),
 }
