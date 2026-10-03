@@ -23,6 +23,7 @@ const copy = {
     newPost: "New post",
     composerTitle: "Share something with your network",
     composerBody: "A real consumer could create public, owner-only, or approved-follower posts.",
+    audienceApprovedFollowers: "Approved followers",
     compose: "Compose",
     save: "Save",
     inbox: "Inbox",
@@ -48,6 +49,7 @@ const copy = {
     newPost: "Neuer Beitrag",
     composerTitle: "Etwas mit deinem Netzwerk teilen",
     composerBody: "Ein echter Client könnte öffentliche, private oder für bestätigte Follower sichtbare Beiträge erstellen.",
+    audienceApprovedFollowers: "Bestätigte Follower",
     compose: "Erstellen",
     save: "Speichern",
     inbox: "Postfach",
@@ -74,7 +76,9 @@ function setView(view, push = false) {
   if (push) {
     const next = new URL(location.href);
     next.searchParams.set("view", resolved);
+    next.hash = "";
     history.pushState({ view: resolved }, "", next);
+    document.querySelector(".demo-frame")?.scrollIntoView({ block: "start" });
   }
 }
 
