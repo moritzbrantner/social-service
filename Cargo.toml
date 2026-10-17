@@ -19,8 +19,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["serde", "v4"] }
 
 [dev-dependencies]
-http-body-util = "0.1"
-tower = { version = "0.5", features = ["util"] }
+http-body-util = "=0.1.5"
+tower = { version = "=0.5.3", features = ["util"] }
 
 [lints.rust]
 unsafe_code = "forbid"
