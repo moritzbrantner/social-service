@@ -406,6 +406,8 @@ fn post_from_record(record: PostRecord, media_ids: Vec<Uuid>) -> Post {
     }
 }
 
+// The dynamic SQL below only interpolates `&'static str` table and column names chosen by the
+// caller; every value is bound as a parameter, so it is wrapped in `AssertSqlSafe`.
 pub(crate) async fn load_media_ids(
     state: &AppState,
     app_id: Uuid,
@@ -416,7 +418,7 @@ pub(crate) async fn load_media_ids(
     let sql = format!(
         "SELECT relation.media_id FROM {table} relation WHERE relation.app_id = $1 AND relation.{owner_column} = $2 AND ($3 = FALSE OR NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'media' AND mcs.target_id = relation.media_id AND mcs.state <> 'active')) ORDER BY relation.position ASC"
     );
-    Ok(sqlx::query_scalar::<_, Uuid>(&sql)
+    Ok(sqlx::query_scalar::<_, Uuid>(sqlx::AssertSqlSafe(sql))
         .bind(app_id)
         .bind(owner_id)
         .bind(state.features.is_enabled(Feature::Moderation))
@@ -438,7 +440,7 @@ pub(crate) async fn load_media_ids_batch(
     let sql = format!(
         "SELECT relation.{owner_column}, relation.media_id FROM {table} relation WHERE relation.app_id = $1 AND relation.{owner_column} = ANY($2) AND ($3 = FALSE OR NOT EXISTS (SELECT 1 FROM moderation_content_states mcs WHERE mcs.app_id = $1 AND mcs.target_type = 'media' AND mcs.target_id = relation.media_id AND mcs.state <> 'active')) ORDER BY relation.{owner_column} ASC, relation.position ASC"
     );
-    let rows = sqlx::query_as::<_, (Uuid, Uuid)>(&sql)
+    let rows = sqlx::query_as::<_, (Uuid, Uuid)>(sqlx::AssertSqlSafe(sql))
         .bind(app_id)
         .bind(owner_ids)
         .bind(state.features.is_enabled(Feature::Moderation))
@@ -467,7 +469,7 @@ pub(crate) async fn attach_media(
         let sql = format!(
             "INSERT INTO {table} (app_id, {owner_column}, media_id, position) SELECT $1, $2, m.id, $3 FROM media_assets m WHERE m.app_id = $1 AND m.id = $4 AND m.owner_id = $5"
         );
-        let result = sqlx::query(&sql)
+        let result = sqlx::query(sqlx::AssertSqlSafe(sql))
             .bind(app_id)
             .bind(owner_id)
             .bind(position)
