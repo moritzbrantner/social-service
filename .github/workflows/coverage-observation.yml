@@ -93,7 +93,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: moritzbrantner/coding-tooling
-          ref: 2ceb2b57c946fd042fdf098c05427519c146a62f
+          ref: 413e7ddc499d5f2a23299ac0ac06a563ad4f7e7d
           path: .tools/coding-tooling
           persist-credentials: false
 
