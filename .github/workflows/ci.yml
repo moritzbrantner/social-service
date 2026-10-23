@@ -115,7 +115,7 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
         working-directory: sdk/typescript
       - name: Run strict full tier
-        uses: moritzbrantner/coding-tooling@1ca87e2982c30cf29b813b0e6309219642f65b3f
+        uses: moritzbrantner/coding-tooling@2ceb2b57c946fd042fdf098c05427519c146a62f
         with:
           operation: run
           tier: full
@@ -124,7 +124,7 @@ jobs:
           report-path: .artifacts/coding-tooling/full.json
 
       - name: Verify exact HTTP behavioral cases
-        uses: moritzbrantner/coding-tooling@1ca87e2982c30cf29b813b0e6309219642f65b3f
+        uses: moritzbrantner/coding-tooling@2ceb2b57c946fd042fdf098c05427519c146a62f
         with:
           operation: public-contract
           install-mode: none
@@ -160,7 +160,7 @@ jobs:
 
       - name: Check convention conformance
         if: steps.structure.outputs.changed == 'true'
-        uses: moritzbrantner/coding-tooling@1ca87e2982c30cf29b813b0e6309219642f65b3f
+        uses: moritzbrantner/coding-tooling@2ceb2b57c946fd042fdf098c05427519c146a62f
         with:
           operation: conformance
           report-path: .artifacts/coding-tooling/conformance.json
@@ -193,7 +193,7 @@ jobs:
       - name: Run real-service acceptance and failure cases
         run: python3 scripts/test_load_smoke.py
       - name: Invoke declared performance capability
-        uses: moritzbrantner/coding-tooling@1ca87e2982c30cf29b813b0e6309219642f65b3f
+        uses: moritzbrantner/coding-tooling@2ceb2b57c946fd042fdf098c05427519c146a62f
         with:
           operation: run
           tier: performance
