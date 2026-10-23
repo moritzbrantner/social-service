@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "24"
+          node-version: lts/*
           package-manager-cache: false
       - run: node --test ./pages/tests/showcase.test.mjs
       - run: node ./pages/build.mjs
@@ -64,7 +64,7 @@ jobs:
     uses: moritzbrantner/reusable-workflows/.github/workflows/deploy-pages.yml@197a252fcfc3d4a631010c61ef77369f5461365c
     with:
       working_directory: "."
-      node_version: "24"
+      node_version: lts/*
       bun_version: ""
       install_command: ""
       pre_command: "node --test ./pages/tests/showcase.test.mjs"
