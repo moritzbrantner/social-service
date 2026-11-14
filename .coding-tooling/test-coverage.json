@@ -3,9 +3,9 @@
   "kind": "coding-tooling-test-coverage-snapshot",
   "repository": {
     "fullName": "moritzbrantner/social-service",
-    "revision": "8cbba3de3ac6ec431e11273bbbe5f2a40242ffea"
+    "revision": "246588333b2c7c4860b1f55975320e3e13a99b3e"
   },
-  "generatedAt": "2026-11-13T04:37:19.000Z",
+  "generatedAt": "2026-11-14T02:54:52.000Z",
   "producer": {
     "id": "coding-tooling",
     "protocolVersion": 1
